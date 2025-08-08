@@ -35,6 +35,8 @@ const nodeTypes = {
 const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | null }) => {
   const router = useRouter();
   
+  console.log('VisualWorkflowBuilder - editWorkflowId:', editWorkflowId);
+  
   // Default trigger node that's always present
   const defaultTriggerNode: Node = {
     id: 'trigger-1',
@@ -145,7 +147,14 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   // Auto-save on nodes/edges change
   useEffect(() => {
     // Only auto-save if there are actual changes and we have a workflow name
-    if ((nodes.length > 0 || edges.length > 0) && workflowName.trim()) {
+    // Also check if we have action nodes (not just the trigger)
+    const actionNodes = nodes.filter(node => 
+      node.type === 'action' || 
+      node.type === 'typescript' ||
+      node.type === 'condition'
+    );
+    
+    if (actionNodes.length > 0 && workflowName.trim()) {
       triggerAutoSave();
     }
   }, [nodes, edges, workflowName, triggerAutoSave]);
@@ -161,14 +170,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     }
   }, [saveStatus]);
 
-  // Load existing workflow for editing
-  useEffect(() => {
-    if (editWorkflowId) {
-      loadWorkflow(editWorkflowId);
-    }
-  }, [editWorkflowId]);
-
-  const loadWorkflow = async (workflowId: string) => {
+  const loadWorkflow = useCallback(async (workflowId: string) => {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/workflows/${workflowId}`);
@@ -202,7 +204,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       
       // Add action nodes
       workflow.actions.forEach((action: any, index: number) => {
-        const actionId = `action-${index + 1}`;
+        // Use the original node ID from the saved data
+        const actionId = action.id || `action-${index + 1}`;
         
         // Use the action data directly for generic workflow structure
         const nodeData = {
@@ -233,7 +236,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
           });
         } else {
           // Connect previous action to current action
-          const previousActionId = `action-${index}`;
+          const previousAction = workflow.actions[index - 1];
+          const previousActionId = previousAction.id || `action-${index}`;
           workflowEdges.push({
             id: `edge-${previousActionId}-to-${actionId}`,
             source: previousActionId,
@@ -253,8 +257,12 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         nodes: workflowNodes.length,
         edges: workflowEdges.length,
         actions: workflow.actions.length,
-        actionSequence: workflow.actions.map((action: any, index: number) => `${index}: ${action.type}`)
+        actionSequence: workflow.actions.map((action: any, index: number) => `${index}: ${action.type}`),
+        workflowData: workflow
       });
+      
+      console.log('WorkflowNodes to be set:', workflowNodes);
+      console.log('WorkflowEdges to be set:', workflowEdges);
       
       setNodes(workflowNodes);
       setEdges(workflowEdges);
@@ -264,7 +272,15 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Load existing workflow for editing
+  useEffect(() => {
+    if (editWorkflowId) {
+      console.log('Loading workflow with ID:', editWorkflowId);
+      loadWorkflow(editWorkflowId);
+    }
+  }, [editWorkflowId, loadWorkflow]);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
@@ -335,51 +351,14 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         node.type === 'condition'
       );
 
-      // Build the connected sequence first
-      const connectedSequence: Node[] = [];
-      const processedNodes = new Set<string>();
-      
-      // Start from trigger node (always present)
-      let currentNodeId = triggerNode?.id;
-      
-      // Follow the connections to build the connected sequence
-      while (currentNodeId && !processedNodes.has(currentNodeId)) {
-        processedNodes.add(currentNodeId);
-        
-        // Find edges that start from current node
-        const outgoingEdges = edges.filter(edge => edge.source === currentNodeId);
-        
-        if (outgoingEdges.length > 0) {
-          // Take the first outgoing edge (assuming single flow)
-          const nextEdge = outgoingEdges[0];
-          const nextNode = nodes.find(node => node.id === nextEdge.target);
-          
-          if (nextNode && nextNode.type !== 'trigger') {
-            // Add the action to connected sequence
-            connectedSequence.push(nextNode);
-            currentNodeId = nextNode.id;
-          } else {
-            break; // No more actions to process
-          }
-        } else {
-          break; // No outgoing edges
-        }
-      }
-
-      // Find disconnected nodes (nodes not in the connected sequence)
-      const disconnectedNodes = allActionNodes.filter(node => 
-        !connectedSequence.find(connected => connected.id === node.id)
-      );
-
-      // Combine connected and disconnected nodes
-      const actionSequence = [...connectedSequence, ...disconnectedNodes];
+      // Simply save all action nodes - don't worry about connections for now
+      const actionSequence = allActionNodes;
 
       // Log information about what's being saved
       console.log('Saving workflow with:', {
-        connectedNodes: connectedSequence.length,
-        disconnectedNodes: disconnectedNodes.length,
-        totalNodes: actionSequence.length,
-        disconnectedNodeTypes: disconnectedNodes.map(node => node.type)
+        totalActionNodes: allActionNodes.length,
+        actionNodeTypes: allActionNodes.map(node => node.type),
+        actionNodeIds: allActionNodes.map(node => node.id)
       });
 
       const workflowData = {
@@ -427,10 +406,14 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       setSaveStatus('saved');
       lastSaveTime.current = Date.now();
       
-      // Only redirect for manual saves, not auto-saves
-      if (!isAutoSave) {
-        router.push('/workflows');
+      // If this was a new workflow (no editWorkflowId), update the URL to include the workflow ID
+      if (!editWorkflowId && workflow.id) {
+        console.log('New workflow created, updating URL with ID:', workflow.id);
+        router.replace(`/workflows/visual-builder?edit=${workflow.id}`);
       }
+      
+      // Don't redirect - stay on the canvas after saving
+      // This allows users to continue working on their workflow
     } catch (error) {
       console.error('Error saving workflow:', error);
       alert(error instanceof Error ? error.message : 'Failed to save workflow');
@@ -584,6 +567,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 const VisualWorkflowBuilderWithParams = () => {
   const searchParams = useSearchParams();
   const editWorkflowId = searchParams.get('edit');
+  
+  console.log('VisualWorkflowBuilderWithParams - editWorkflowId:', editWorkflowId);
   
   return <VisualWorkflowBuilder editWorkflowId={editWorkflowId} />;
 };
