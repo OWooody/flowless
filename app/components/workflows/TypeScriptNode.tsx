@@ -5,12 +5,12 @@ import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 
 const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(data.label || 'TypeScript Code');
+  const [editValue, setEditValue] = useState(data.label || 'Code');
   const { setNodes } = useReactFlow();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
-    setEditValue(data.label || 'TypeScript Code');
+    setEditValue(data.label || 'Code');
   }, [data.label]);
 
   const handleBlur = useCallback(() => {
@@ -19,7 +19,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
-            ? { ...node, data: { ...node.data, label: editValue.trim() || 'TypeScript Code' } }
+            ? { ...node, data: { ...node.data, label: editValue.trim() || 'Code' } }
             : node
         )
       );
@@ -31,15 +31,17 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       handleBlur();
     } else if (e.key === 'Escape') {
       setIsEditing(false);
-      setEditValue(data.label || 'TypeScript Code');
+      setEditValue(data.label || 'Code');
     }
   }, [handleBlur, data.label]);
 
   return (
-    <div className={`px-4 py-2 shadow-md rounded-md bg-white border-2 ${selected ? 'border-blue-500' : 'border-gray-200'}`}>
+    <div className={`px-4 py-2 shadow-md rounded-md bg-gradient-to-r from-purple-500 to-purple-600 text-white border-2 ${selected ? 'border-purple-300' : 'border-purple-400'}`}>
       <div className="flex items-center">
-        <div className="rounded-full w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-600 text-sm font-bold">
-          TS
+        <div className="rounded-full w-8 h-8 flex items-center justify-center bg-purple-500">
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
         </div>
         <div className="ml-2 flex-1">
           {isEditing ? (
@@ -54,14 +56,14 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
             />
           ) : (
             <div 
-              className="text-sm font-bold cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded"
+              className="text-sm font-bold cursor-pointer hover:bg-white hover:bg-opacity-10 px-1 py-0.5 rounded"
               onDoubleClick={handleDoubleClick}
               title="Double-click to edit"
             >
               {data.label || 'TypeScript Code'}
             </div>
           )}
-          <div className="text-xs text-gray-500">Execute TypeScript code</div>
+          <div className="text-xs text-purple-100">Execute custom code</div>
         </div>
       </div>
 

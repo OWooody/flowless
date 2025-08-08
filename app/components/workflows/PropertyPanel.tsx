@@ -297,7 +297,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
     </div>
   );
 
-  const renderTypeScriptProperties = () => {
+  const renderCodeProperties = () => {
     const testCode = async () => {
       setIsTesting(true);
       setTestResult(null);
@@ -331,12 +331,12 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            TypeScript Code
+            Code
           </label>
                               <textarea
                       defaultValue={nodeData.code || '// Generic data processing example\nconsole.log("Input data:", input);\nconsole.log("Previous node output:", previous);\n\n// Process any type of data\nconst result = {\n  processed: true,\n  timestamp: new Date().toISOString(),\n  inputData: input,\n  previousData: previous || {},\n  // Add your custom processing logic here\n};\n\nconsole.log("Processing result:", result);\nreturn result;'}
                       onBlur={(e) => handleInputBlur('code', e.target.value)}
-                      placeholder="// Your TypeScript code here"
+                      placeholder="// Your code here"
                       rows={12}
                       className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -607,7 +607,7 @@ return {
       {selectedNode.type === 'trigger' && renderTriggerProperties()}
       {selectedNode.type === 'condition' && renderConditionProperties()}
       {selectedNode.type === 'action' && renderActionProperties()}
-      {selectedNode.type === 'typescript' && renderTypeScriptProperties()}
+                  {selectedNode.type === 'typescript' && renderCodeProperties()}
       
       {/* Debug: Show if no properties are rendered */}
       {!['trigger', 'condition', 'action', 'typescript'].includes(selectedNode?.type || '') && (

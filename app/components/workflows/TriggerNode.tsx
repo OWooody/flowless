@@ -44,7 +44,7 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
   }, [handleBlur, data.label]);
 
   return (
-    <div className={`bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-blue-300' : 'border-blue-400'} min-w-[200px]`}>
+    <div className={`bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-green-300' : 'border-green-400'} min-w-[200px]`}>
       <Handle type="source" position={Position.Right} className="w-3 h-3 bg-white" />
       
       <div className="p-4">
@@ -75,7 +75,7 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
                 {data.label || 'Trigger'}
               </div>
             )}
-            <p className="text-xs text-blue-100">Start workflow with input data</p>
+            <p className="text-xs text-green-100">Start workflow with input data</p>
           </div>
         </div>
         
@@ -83,10 +83,10 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
           <div className="text-xs space-y-1">
             <div className="font-medium">Type: {data.triggerType}</div>
             {data.webhookUrl && (
-              <div className="text-blue-100">Webhook: {data.webhookUrl}</div>
+              <div className="text-green-100">Webhook: {data.webhookUrl}</div>
             )}
             {data.schedule && (
-              <div className="text-blue-100">Schedule: {data.schedule}</div>
+              <div className="text-green-100">Schedule: {data.schedule}</div>
             )}
           </div>
         </div>

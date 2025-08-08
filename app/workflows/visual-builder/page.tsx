@@ -22,7 +22,6 @@ import TriggerNode from '../../components/workflows/TriggerNode';
 import ActionNode from '../../components/workflows/ActionNode';
 import ConditionNode from '../../components/workflows/ConditionNode';
 import TypeScriptNode from '../../components/workflows/TypeScriptNode';
-import NodePalette from '../../components/workflows/NodePalette';
 import PropertyPanel from '../../components/workflows/PropertyPanel';
 
 const nodeTypes = {
@@ -61,10 +60,40 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | null>(null);
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
+  const [showNodePalette, setShowNodePalette] = useState(false);
+  const [palettePosition, setPalettePosition] = useState({ x: 0, y: 0 });
+  const [connectionStart, setConnectionStart] = useState<Node | null>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const lastSaveTime = useRef<number>(0);
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const onConnectStart = useCallback(
+    (event: any, params: any) => {
+      // When starting a connection, show the node palette
+      setConnectionStart(params.node);
+      setShowNodePalette(true);
+      
+      // Position the palette near the mouse
+      if (reactFlowWrapper.current) {
+        const rect = reactFlowWrapper.current.getBoundingClientRect();
+        setPalettePosition({
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
+      }
+    },
+    []
+  );
+
+  const onConnectEnd = useCallback(
+    (event: any) => {
+      // Hide palette when connection ends
+      setShowNodePalette(false);
+      setConnectionStart(null);
+    },
+    []
+  );
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -78,6 +107,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         animated: true,
       };
       setEdges((eds) => addEdge(newEdge, eds));
+      setShowNodePalette(false);
+      setConnectionStart(null);
       // Auto-save disabled
     },
     [setEdges]
@@ -277,6 +308,61 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     [reactFlowInstance, setNodes, nodes]
   );
 
+  const addNodeFromPalette = useCallback(
+    (nodeType: string, nodeData: any, connectToNode?: Node) => {
+      let position = { x: 400, y: 200 }; // Default position
+
+      if (connectToNode) {
+        // Position the new node near the connection start
+        position = {
+          x: connectToNode.position.x + 300,
+          y: connectToNode.position.y,
+        };
+      } else if (nodes.length > 0) {
+        // Find the rightmost node to position the new node next to it
+        const rightmostNode = nodes.reduce((rightmost, current) => {
+          return (current.position.x > rightmost.position.x) ? current : rightmost;
+        });
+
+        // Position the new node to the right of the rightmost node
+        position = {
+          x: rightmostNode.position.x + 350,
+          y: rightmostNode.position.y
+        };
+      }
+
+      const newNode: Node = {
+        id: `${nodeType}-${Date.now()}`,
+        type: nodeType,
+        position,
+        data: nodeData || {},
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+
+      // Create connection if we have a start node
+      if (connectToNode) {
+        const newEdge = {
+          id: `edge-${connectToNode.id}-${newNode.id}`,
+          source: connectToNode.id,
+          target: newNode.id,
+          type: 'smoothstep',
+          style: {
+            strokeWidth: 3,
+            stroke: '#3b82f6',
+          },
+          animated: true,
+        };
+
+        setEdges((eds) => addEdge(newEdge, eds));
+      }
+
+      setShowNodePalette(false);
+      setConnectionStart(null);
+    },
+    [nodes, setNodes, setEdges]
+  );
+
   const validateWorkflow = () => {
     // Always allow saving if there's a name (we have a default now)
     if (!workflowName.trim()) {
@@ -392,6 +478,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     }
   };
 
+
+
   const clearCanvas = () => {
     if (confirm('Are you sure you want to clear the canvas? This will remove all nodes and connections.')) {
       setNodes([defaultTriggerNode]);
@@ -405,9 +493,6 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     <div className="h-screen w-full flex">
       {/* Main Content */}
       <div className="flex-1 flex">
-        {/* Node Palette */}
-        <NodePalette />
-
         {/* Canvas Area with Floating Elements */}
         <div className="flex-1 relative">
 
@@ -440,25 +525,77 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
             </div>
           )}
 
-          {/* Floating Workflow Name Input with Back Button */}
+          {/* Floating Workflow Name Input with Back Button and Icon */}
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Untitled Workflow"
-                value={workflowName}
-                onChange={(e) => setWorkflowName(e.target.value)}
-                className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-lg"
-              />
+            <div className="flex items-center space-x-3">
+              {/* Back Button */}
               <button
                 onClick={() => router.push('/workflows')}
-                className="absolute left-2 top-1/2 transform -translate-y-1/2 z-50 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full p-1 shadow-sm hover:bg-white transition-all duration-200"
+                className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full p-2 shadow-sm hover:bg-white transition-all duration-200"
                 title="Back to Workflows (Esc)"
               >
-                <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
+
+              {/* Workflow Name Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Untitled Workflow"
+                  value={workflowName}
+                  onChange={(e) => setWorkflowName(e.target.value)}
+                  className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-lg"
+                />
+              </div>
+
+              {/* Node Type Buttons */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => addNodeFromPalette('action', { label: 'Action', actionType: 'http_request' })}
+                  className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-white transition-all duration-200 flex items-center space-x-2 shadow-sm"
+                  title="Add Action Node"
+                >
+                  <div className="w-4 h-4 bg-blue-500 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-gray-700">Action</span>
+                </button>
+                
+                <button
+                  onClick={() => addNodeFromPalette('condition', { 
+                    label: 'Condition',
+                    conditionType: 'equals',
+                    leftOperand: 'Value',
+                    rightOperand: 'Compare to'
+                  })}
+                  className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-white transition-all duration-200 flex items-center space-x-2 shadow-sm"
+                  title="Add Condition Node"
+                >
+                  <div className="w-4 h-4 bg-yellow-500 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-gray-700">Condition</span>
+                </button>
+                
+                <button
+                  onClick={() => addNodeFromPalette('typescript', { label: 'Code', code: '// Your code here\nreturn input;' })}
+                  className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-white transition-all duration-200 flex items-center space-x-2 shadow-sm"
+                  title="Add Code Node"
+                >
+                  <div className="w-4 h-4 bg-purple-500 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                  </div>
+                  <span className="text-gray-700">Code</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -498,6 +635,63 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
             </div>
           </div>
 
+          {/* Floating Node Palette */}
+          {showNodePalette && (
+            <div 
+              className="absolute z-50 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-xl p-4"
+              style={{
+                left: palettePosition.x,
+                top: palettePosition.y,
+                transform: 'translate(-50%, -100%)',
+                marginTop: '-10px'
+              }}
+            >
+              <div className="text-sm font-medium text-gray-700 mb-3">Add Node</div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => addNodeFromPalette('action', { label: 'Action', actionType: 'http_request' }, connectionStart || undefined)}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                >
+                  <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm">Action</span>
+                </button>
+                
+                <button
+                  onClick={() => addNodeFromPalette('condition', { 
+                    label: 'Condition',
+                    conditionType: 'equals',
+                    leftOperand: 'Value',
+                    rightOperand: 'Compare to'
+                  }, connectionStart || undefined)}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                >
+                  <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm">Condition</span>
+                </button>
+                
+                <button
+                  onClick={() => addNodeFromPalette('typescript', { label: 'Code', code: '// Your code here\nreturn input;' }, connectionStart || undefined)}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                >
+                  <div className="w-6 h-6 bg-purple-500 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                  </div>
+                  <span className="text-sm">Code</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* React Flow Canvas */}
           <div className="w-full h-full" ref={reactFlowWrapper}>
             <ReactFlow
@@ -506,6 +700,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onConnectStart={onConnectStart}
+              onConnectEnd={onConnectEnd}
               onNodeClick={onNodeClick}
               onPaneClick={onPaneClick}
               onDragOver={onDragOver}

@@ -56,11 +56,11 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
   };
 
   return (
-    <div className={`bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-orange-300' : 'border-orange-400'} min-w-[200px]`}>
+    <div className={`bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-yellow-300' : 'border-yellow-400'} min-w-[200px]`}>
       <Handle
         type="target"
         position={Position.Left}
-        className="w-5 h-5 bg-white border-2 border-orange-400 shadow-lg hover:scale-110 transition-transform duration-200 cursor-crosshair"
+        className="w-5 h-5 bg-white border-2 border-yellow-400 shadow-lg hover:scale-110 transition-transform duration-200 cursor-crosshair"
         style={{ left: '-10px' }}
       />
       
@@ -110,8 +110,8 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
                 {data.label || 'Condition'}
               </div>
             )}
-            <p className="text-xs text-orange-100">
-              {data.conditionType.replace('_', ' ')}
+            <p className="text-xs text-yellow-100">
+              {(data.conditionType || 'equals').replace('_', ' ')}
             </p>
           </div>
         </div>
@@ -122,7 +122,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
               {data.leftOperand || 'Left operand'}
             </div>
             <div className="text-orange-100 text-center text-sm font-bold">
-              {getConditionSymbol(data.conditionType)}
+              {getConditionSymbol(data.conditionType || 'equals')}
             </div>
             <div className="font-medium truncate">
               {data.rightOperand || 'Right operand'}

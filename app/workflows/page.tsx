@@ -85,6 +85,8 @@ export default function WorkflowsPage() {
     }
   };
 
+
+
   const testWorkflow = async (workflowId: string) => {
     try {
       const response = await fetch(`/api/workflows/${workflowId}/test`, {
@@ -194,11 +196,7 @@ export default function WorkflowsPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-700">Trigger</p>
                     <p className="text-sm text-gray-600">
-                      {workflow.trigger.filters?.eventName ? (
-                        <span>{workflow.trigger.filters.eventName} events</span>
-                      ) : (
-                        <span>{workflow.trigger.eventType} events</span>
-                      )}
+                      {workflow.trigger?.data?.triggerType || 'Webhook'} trigger
                     </p>
                   </div>
                   
@@ -206,6 +204,11 @@ export default function WorkflowsPage() {
                     <p className="text-sm font-medium text-gray-700">Actions</p>
                     <p className="text-sm text-gray-600">
                       {workflow.actions.length} action{workflow.actions.length !== 1 ? 's' : ''}
+                      {workflow.actions.length > 0 && (
+                        <span className="text-gray-500">
+                          {' '}({workflow.actions.map((action: any) => action.type).join(', ')})
+                        </span>
+                      )}
                     </p>
                   </div>
 

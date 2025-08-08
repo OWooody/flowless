@@ -74,16 +74,16 @@ const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
   const getGradient = (type: string) => {
     switch (type) {
       case 'http_request':
-        return 'from-green-500 to-green-600';
+        return 'from-blue-500 to-blue-600';
       case 'webhook_call':
         return 'from-purple-500 to-purple-600';
       default:
-        return 'from-gray-500 to-gray-600';
+        return 'from-blue-500 to-blue-600';
     }
   };
 
   return (
-    <div className={`bg-gradient-to-r ${getGradient(data.actionType)} text-white rounded-lg shadow-lg border-2 ${selected ? 'border-green-300' : 'border-green-400'} min-w-[200px]`}>
+    <div className={`bg-gradient-to-r ${getGradient(data.actionType)} text-white rounded-lg shadow-lg border-2 ${selected ? 'border-blue-300' : 'border-blue-400'} min-w-[200px]`}>
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-white" />
       <Handle type="source" position={Position.Right} className="w-3 h-3 bg-white" />
       
