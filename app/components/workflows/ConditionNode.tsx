@@ -121,7 +121,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
             <div className="font-medium truncate">
               {data.leftOperand || 'Left operand'}
             </div>
-            <div className="text-orange-100 text-center text-sm font-bold">
+            <div className="text-yellow-100 text-center text-sm font-bold">
               {getConditionSymbol(data.conditionType || 'equals')}
             </div>
             <div className="font-medium truncate">
