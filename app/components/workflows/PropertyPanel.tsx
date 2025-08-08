@@ -10,18 +10,15 @@ interface PropertyPanelProps {
 
 export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
   const { getNode, setNodes, getNodes } = useReactFlow();
-  const [executionData, setExecutionData] = useState<any[]>([]);
   const [eventData, setEventData] = useState<any>(null);
   const [workflowContext, setWorkflowContext] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
   const [localNodeData, setLocalNodeData] = useState<any>({});
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
-  // Fetch execution data when a node is selected
+  // Set sample event data when a node is selected
   useEffect(() => {
     if (selectedNode) {
-      fetchExecutionData();
       // Set sample event data for demonstration
       setEventData({
         id: 'event_123',
@@ -79,26 +76,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
     }
   }, [selectedNode]);
 
-  const fetchExecutionData = async () => {
-    if (!selectedNode) return;
 
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/workflows/${selectedNode.id}/executions`);
-      if (response.ok) {
-        const data = await response.json();
-        setExecutionData(data.executions || []);
-      } else {
-        console.error('Failed to fetch execution data');
-        setExecutionData([]);
-      }
-    } catch (error) {
-      console.error('Error fetching execution data:', error);
-      setExecutionData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!selectedNode) {
     return (
@@ -240,7 +218,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
             label="Request URL"
             placeholder="https://api.example.com/endpoint"
             className="mb-4"
-            executionData={executionData}
             eventData={eventData}
             workflowContext={workflowContext}
           />
@@ -251,7 +228,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
             label="Headers (JSON)"
             placeholder='{"Content-Type": "application/json"}'
             className="mb-4"
-            executionData={executionData}
             eventData={eventData}
             workflowContext={workflowContext}
           />
@@ -262,7 +238,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
             label="Request Body (JSON)"
             placeholder='{"key": "value"}'
             className="mb-4"
-            executionData={executionData}
             eventData={eventData}
             workflowContext={workflowContext}
           />
@@ -277,7 +252,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
             label="Processing Script"
             placeholder="// JavaScript code to process data"
             className="mb-4"
-            executionData={executionData}
             eventData={eventData}
             workflowContext={workflowContext}
           />
@@ -292,7 +266,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
             label="Webhook URL"
             placeholder="https://external-service.com/webhook"
             className="mb-4"
-            executionData={executionData}
             eventData={eventData}
             workflowContext={workflowContext}
           />
@@ -303,7 +276,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
             label="Payload (JSON)"
             placeholder='{"data": "value"}'
             className="mb-4"
-            executionData={executionData}
             eventData={eventData}
             workflowContext={workflowContext}
           />
