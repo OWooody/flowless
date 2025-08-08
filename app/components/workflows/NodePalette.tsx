@@ -13,18 +13,6 @@ interface NodeTemplate {
 
 const nodeTemplates: NodeTemplate[] = [
   {
-    type: 'trigger',
-    label: 'Trigger',
-    description: 'Start workflow with input data',
-    icon: '⚡',
-    data: {
-      triggerType: 'webhook',
-      webhookUrl: '',
-      schedule: '',
-      label: 'Trigger',
-    },
-  },
-  {
     type: 'condition',
     label: 'Condition',
     description: 'Check if condition is met',
@@ -75,7 +63,7 @@ const NodePalette = () => {
 
   return (
     <div className="bg-white border-r border-gray-200 w-64 p-4">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Workflow Nodes</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Nodes</h3>
       <div className="space-y-3">
         {nodeTemplates.map((template) => (
           <div

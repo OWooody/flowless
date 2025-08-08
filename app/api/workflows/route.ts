@@ -43,22 +43,26 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, description, trigger, actions } = body;
 
-    if (!name || !trigger || !actions || !Array.isArray(actions) || actions.length === 0) {
+    // Debug: Log the received data
+    console.log('Received workflow data:', JSON.stringify(body, null, 2));
+
+    if (!name || !trigger || !actions || !Array.isArray(actions)) {
+      console.log('Validation failed:', { name, trigger, actions });
       return NextResponse.json(
         { error: 'Invalid workflow configuration' },
         { status: 400 }
       );
     }
 
-    // Validate trigger configuration
-    if (!trigger.eventType) {
+    // Validate trigger configuration - only require basic trigger structure
+    if (!trigger || typeof trigger !== 'object') {
       return NextResponse.json(
-        { error: 'Event type is required in trigger configuration' },
+        { error: 'Trigger configuration is required' },
         { status: 400 }
       );
     }
 
-    // Validate actions
+        // Validate actions
     for (const action of actions) {
       if (!action.type) {
         return NextResponse.json(
@@ -67,6 +71,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Handle different action types
       if (action.type === 'push_notification') {
         if (!action.title || !action.body) {
           return NextResponse.json(
@@ -81,6 +86,9 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+      } else if (action.type === 'action' || action.type === 'typescript' || action.type === 'condition') {
+        // These are the new generic action types - no specific validation needed
+        continue;
       }
     }
 

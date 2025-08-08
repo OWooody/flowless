@@ -35,7 +35,22 @@ const nodeTypes = {
 const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | null }) => {
   const router = useRouter();
   
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  // Default trigger node that's always present
+  const defaultTriggerNode: Node = {
+    id: 'trigger-1',
+    type: 'trigger',
+    position: { x: 100, y: 200 },
+    data: {
+      label: 'Trigger',
+      triggerType: 'webhook',
+      webhookUrl: '',
+      schedule: '',
+    },
+    draggable: false, // Make it non-draggable
+    deletable: false, // Make it non-deletable
+  };
+  
+  const [nodes, setNodes, onNodesChange] = useNodesState([defaultTriggerNode]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
@@ -169,85 +184,36 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       const workflowNodes: Node[] = [];
       const workflowEdges: Edge[] = [];
       
-      // Add trigger node
-      if (workflow.trigger) {
-        workflowNodes.push({
-          id: 'trigger-1',
-          type: 'trigger',
-          position: { x: 100, y: 100 },
-          data: {
-            eventType: workflow.trigger.eventType,
-            eventName: workflow.trigger.filters?.eventName || '',
-            filterItemName: workflow.trigger.filters?.itemName || '',
-            filterItemCategory: workflow.trigger.filters?.itemCategory || '',
-            filterItemId: workflow.trigger.filters?.itemId || '',
-            filterValue: workflow.trigger.filters?.value || undefined,
-          },
-        });
-      }
+      // Always add the default trigger node (non-deletable, non-draggable)
+      const triggerNode: Node = {
+        id: 'trigger-1',
+        type: 'trigger',
+        position: { x: 100, y: 100 },
+        data: {
+          label: workflow.trigger?.data?.label || 'Trigger',
+          triggerType: workflow.trigger?.data?.triggerType || 'webhook',
+          webhookUrl: workflow.trigger?.data?.webhookUrl || '',
+          schedule: workflow.trigger?.data?.schedule || '',
+        },
+        draggable: false,
+        deletable: false,
+      };
+      workflowNodes.push(triggerNode);
       
       // Add action nodes
       workflow.actions.forEach((action: any, index: number) => {
         const actionId = `action-${index + 1}`;
         
-        // Determine node type based on action type
-        const nodeType = action.type === 'whatsapp_message' ? 'whatsapp_message' : 
-                        action.type === 'promo_code' ? 'promo_code' : 'push_notification';
-        
-        // Prepare node data based on action type
-        let nodeData: any = {
-          type: action.type || 'push_notification',
+        // Use the action data directly for generic workflow structure
+        const nodeData = {
+          ...action.data,
+          label: action.label || action.type,
         };
-
-        if (action.type === 'whatsapp_message') {
-          // WhatsApp action data
-          nodeData = {
-            ...nodeData,
-            provider: action.provider || 'freshchat',
-            templateName: action.templateName || '',
-            namespace: action.namespace || '',
-            language: action.language || 'ar',
-            fromPhone: action.fromPhone || '',
-            toPhone: action.toPhone || '',
-            bodyVariable1: action.bodyVariable1 || '',
-            bodyVariable2: action.bodyVariable2 || '',
-            bodyVariable3: action.bodyVariable3 || '',
-            buttonVariable: action.buttonVariable || '',
-            variableMappings: action.variableMappings || {
-              fromPhone: '',
-              toPhone: '',
-              bodyVariable1: '',
-              bodyVariable2: '',
-              bodyVariable3: '',
-              buttonVariable: '',
-            },
-          };
-        } else if (action.type === 'promo_code') {
-          // Promo code action data
-          nodeData = {
-            ...nodeData,
-            batchId: action.batchId || '',
-            batchName: action.batchName || '',
-            outputVariable: action.outputVariable || 'promoCode',
-            codeType: action.codeType || 'random',
-            specificCode: action.specificCode || '',
-          };
-        } else {
-          // Push notification action data
-          nodeData = {
-            ...nodeData,
-            title: action.title || '',
-            body: action.body || '',
-            targetUsers: action.targetUsers || 'all',
-            segmentId: action.segmentId || '',
-            userIds: Array.isArray(action.userIds) ? action.userIds.join(', ') : action.userIds || '',
-          };
-        }
 
         workflowNodes.push({
           id: actionId,
-          type: nodeType,
-          position: { x: 400 + (index * 350), y: 100 },
+          type: action.type,
+          position: action.position || { x: 400 + (index * 350), y: 100 },
           data: nodeData,
         });
         
@@ -342,31 +308,14 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       return false;
     }
 
-    const triggerNodes = nodes.filter(node => node.type === 'trigger');
+    // Trigger is always present, so we only need to check for actions
     const actionNodes = nodes.filter(node => 
       node.type === 'action' || 
       node.type === 'typescript' ||
       node.type === 'condition'
     );
 
-    // For auto-save, be more lenient - allow saving even with incomplete workflows
-    // For manual save, require basic structure
-    if (triggerNodes.length === 0 && actionNodes.length === 0) {
-      // Empty workflow - still allow saving
-      return true;
-    }
-
-    // If there are nodes, require basic structure
-    if (triggerNodes.length === 0 && actionNodes.length > 0) {
-      // Has actions but no trigger - still allow saving
-      return true;
-    }
-
-    if (actionNodes.length === 0 && triggerNodes.length > 0) {
-      // Has trigger but no actions - still allow saving
-      return true;
-    }
-
+    // Allow saving workflows with or without actions
     return true;
   };
 
@@ -379,7 +328,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
     try {
       // Convert nodes and edges to workflow format
-      const triggerNodes = nodes.filter(node => node.type === 'trigger');
+      const triggerNode = nodes.find(node => node.type === 'trigger');
       const allActionNodes = nodes.filter(node => 
         node.type === 'action' || 
         node.type === 'typescript' ||
@@ -390,8 +339,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       const connectedSequence: Node[] = [];
       const processedNodes = new Set<string>();
       
-      // Start from trigger node
-      let currentNodeId = triggerNodes[0]?.id;
+      // Start from trigger node (always present)
+      let currentNodeId = triggerNode?.id;
       
       // Follow the connections to build the connected sequence
       while (currentNodeId && !processedNodes.has(currentNodeId)) {
@@ -437,71 +386,26 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         name: workflowName,
         description: workflowDescription,
         trigger: {
-          eventType: triggerNodes[0]?.data.eventType || 'engagement',
-          filters: {
-            eventName: triggerNodes[0]?.data.eventName || undefined,
-            itemName: triggerNodes[0]?.data.filterItemName || undefined,
-            itemCategory: triggerNodes[0]?.data.filterItemCategory || undefined,
-            itemId: triggerNodes[0]?.data.filterItemId || undefined,
-            value: triggerNodes[0]?.data.filterValue || undefined,
-          },
+          type: triggerNode?.type || 'trigger',
+          data: triggerNode?.data || {},
+          id: triggerNode?.id,
+          position: triggerNode?.position,
+          label: triggerNode?.data.label || 'Trigger',
         },
         actions: actionSequence.map(node => {
-          if (node.data.type === 'whatsapp_message') {
-            // WhatsApp action
-            return {
-              type: node.data.type,
-              provider: node.data.provider,
-              templateName: node.data.templateName,
-              namespace: node.data.namespace,
-              language: node.data.language,
-              fromPhone: node.data.fromPhone,
-              toPhone: node.data.toPhone,
-              bodyVariable1: node.data.bodyVariable1,
-              bodyVariable2: node.data.bodyVariable2,
-              bodyVariable3: node.data.bodyVariable3,
-              buttonVariable: node.data.buttonVariable,
-              variableMappings: node.data.variableMappings,
-            };
-          } else if (node.data.type === 'promo_code') {
-            // Promo code action
-            return {
-              type: node.data.type,
-              batchId: node.data.batchId,
-              batchName: node.data.batchName,
-              outputVariable: node.data.outputVariable,
-              codeType: node.data.codeType,
-              specificCode: node.data.specificCode,
-            };
-          } else if (node.data.type === 'condition') {
-            // Condition action
-            return {
-              type: node.data.type,
-              conditionType: node.data.conditionType,
-              leftOperand: node.data.leftOperand,
-              rightOperand: node.data.rightOperand,
-              description: node.data.description,
-            };
-          } else {
-            // Push notification action
-            return {
-              type: node.data.type,
-              title: node.data.title,
-              body: node.data.body,
-              targetUsers: node.data.targetUsers,
-              userIds: (() => {
-                const userIds = node.data.userIds;
-                if (!userIds) return undefined;
-                if (Array.isArray(userIds)) return userIds.filter(id => id && id.trim());
-                if (typeof userIds === 'string' && userIds.trim()) {
-                  return userIds.split(',').map((id: string) => id.trim()).filter(Boolean);
-                }
-                return undefined;
-              })(),
-            };
-          }
+          // Generic action mapping for new workflow types
+          return {
+            type: node.type,
+            data: node.data,
+            id: node.id,
+            position: node.position,
+            label: node.data.label || node.type,
+          };
         }),
       };
+
+      // Debug: Log the workflow data being sent
+      console.log('Sending workflow data:', JSON.stringify(workflowData, null, 2));
 
       const url = editWorkflowId ? `/api/workflows/${editWorkflowId}` : '/api/workflows';
       const method = editWorkflowId ? 'PUT' : 'POST';
@@ -520,9 +424,13 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       }
 
       const workflow = await response.json();
-      router.push('/workflows');
       setSaveStatus('saved');
       lastSaveTime.current = Date.now();
+      
+      // Only redirect for manual saves, not auto-saves
+      if (!isAutoSave) {
+        router.push('/workflows');
+      }
     } catch (error) {
       console.error('Error saving workflow:', error);
       alert(error instanceof Error ? error.message : 'Failed to save workflow');
@@ -537,7 +445,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
   const clearCanvas = () => {
     if (confirm('Are you sure you want to clear the canvas? This will remove all nodes and connections.')) {
-      setNodes([]);
+      setNodes([defaultTriggerNode]);
       setEdges([]);
       setSelectedNode(null);
       setSaveStatus('unsaved'); // Clear save status when canvas is cleared

@@ -61,10 +61,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
     }
 
-    // Validate input if provided
-    if (trigger && !trigger.eventType) {
+    // Validate input if provided - generic validation
+    if (trigger && (typeof trigger !== 'object' || trigger === null)) {
       return NextResponse.json(
-        { error: 'Event type is required in trigger configuration' },
+        { error: 'Invalid trigger configuration' },
         { status: 400 }
       );
     }
@@ -78,6 +78,7 @@ export async function PUT(
           );
         }
 
+        // Handle different action types
         if (action.type === 'push_notification') {
           if (!action.title || !action.body) {
             return NextResponse.json(
@@ -92,6 +93,9 @@ export async function PUT(
               { status: 400 }
             );
           }
+        } else if (action.type === 'action' || action.type === 'typescript' || action.type === 'condition') {
+          // These are the new generic action types - no specific validation needed
+          continue;
         }
       }
     }
