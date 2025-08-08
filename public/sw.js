@@ -44,7 +44,6 @@ self.addEventListener('push', function(event) {
     );
   }
 });
-});
 
 self.addEventListener('notificationclick', function(event) {
   console.log('Notification clicked:', event);
