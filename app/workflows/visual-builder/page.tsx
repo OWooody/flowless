@@ -78,7 +78,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         animated: true,
       };
       setEdges((eds) => addEdge(newEdge, eds));
-      triggerAutoSave();
+      // Auto-save disabled
     },
     [setEdges]
   );
@@ -96,20 +96,9 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  // Auto-save functionality
+  // Auto-save functionality - DISABLED for now
   const triggerAutoSave = useCallback(() => {
-    setSaveStatus('unsaved');
-    setShowSaveIndicator(true);
-    
-    // Clear existing timeout
-    if (autoSaveTimeout.current) {
-      clearTimeout(autoSaveTimeout.current);
-    }
-    
-    // Set new timeout for auto-save
-    autoSaveTimeout.current = setTimeout(() => {
-      saveWorkflow(true); // true = auto-save
-    }, 2000); // 2 second delay
+    // Auto-save disabled - only manual saves
   }, []);
 
   // Keyboard shortcuts
@@ -118,7 +107,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       // Ctrl+S or Cmd+S for manual save
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
         event.preventDefault();
-        saveWorkflow(false); // false = manual save
+        saveWorkflow();
       }
       
       // Escape to go back
@@ -137,27 +126,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [router]);
 
-  // Auto-save on workflow name change
-  useEffect(() => {
-    if (workflowName && workflowName.trim()) {
-      triggerAutoSave();
-    }
-  }, [workflowName, triggerAutoSave]);
-
-  // Auto-save on nodes/edges change
-  useEffect(() => {
-    // Only auto-save if there are actual changes and we have a workflow name
-    // Also check if we have action nodes (not just the trigger)
-    const actionNodes = nodes.filter(node => 
-      node.type === 'action' || 
-      node.type === 'typescript' ||
-      node.type === 'condition'
-    );
-    
-    if (actionNodes.length > 0 && workflowName.trim()) {
-      triggerAutoSave();
-    }
-  }, [nodes, edges, workflowName, triggerAutoSave]);
+  // Auto-save disabled - only manual saves
 
   // Hide save indicator after 3 seconds
   useEffect(() => {
@@ -220,36 +189,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
           data: nodeData,
         });
         
-        // Add edges to connect nodes in sequence
-        if (index === 0) {
-          // Connect trigger to first action
-          workflowEdges.push({
-            id: `edge-trigger-to-${actionId}`,
-            source: 'trigger-1',
-            target: actionId,
-            type: 'smoothstep',
-            style: {
-              strokeWidth: 3,
-              stroke: '#3b82f6',
-            },
-            animated: true,
-          });
-        } else {
-          // Connect previous action to current action
-          const previousAction = workflow.actions[index - 1];
-          const previousActionId = previousAction.id || `action-${index}`;
-          workflowEdges.push({
-            id: `edge-${previousActionId}-to-${actionId}`,
-            source: previousActionId,
-            target: actionId,
-            type: 'smoothstep',
-            style: {
-              strokeWidth: 3,
-              stroke: '#3b82f6',
-            },
-            animated: true,
-          });
-        }
+        // Don't automatically create edges - let users connect nodes manually
+        // This preserves the original workflow structure without assumptions
       });
       
       console.log('Loading workflow:', {
@@ -335,7 +276,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     return true;
   };
 
-  const saveWorkflow = async (isAutoSave: boolean = false) => {
+  const saveWorkflow = async () => {
     if (!validateWorkflow()) return;
 
     setIsSaving(true);
@@ -420,9 +361,6 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       setSaveStatus('unsaved');
     } finally {
       setIsSaving(false);
-      if (isAutoSave) {
-        setShowSaveIndicator(false);
-      }
     }
   };
 
@@ -500,7 +438,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
           <div className="absolute bottom-4 right-4 z-50">
             <div className="flex flex-col space-y-2">
               <button
-                onClick={() => saveWorkflow(false)}
+                onClick={() => saveWorkflow()}
                 disabled={isSaving || isLoading}
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
                 title="Save Workflow (Ctrl+S)"
@@ -521,7 +459,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
               </button>
 
               <button
-                onClick={() => alert('Keyboard Shortcuts:\n\nCtrl+S: Save workflow\nEsc: Back to workflows\n\nAuto-save is enabled and will save your changes automatically.')}
+                onClick={() => alert('Keyboard Shortcuts:\n\nCtrl+S: Save workflow\nEsc: Back to workflows\n\nManual save only - use Ctrl+S to save your changes.')}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200"
                 title="Keyboard Shortcuts"
               >
