@@ -53,6 +53,16 @@ const nodeTemplates: NodeTemplate[] = [
       description: '',
     },
   },
+  {
+    type: 'typescript',
+    label: 'TypeScript',
+    description: 'Execute TypeScript code',
+    icon: '📝',
+    data: {
+      code: '// Your TypeScript code here\nconsole.log("Hello from workflow!");\nreturn { success: true };',
+      description: '',
+    },
+  },
 ];
 
 const NodePalette = () => {

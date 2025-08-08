@@ -15,6 +15,8 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
   const [workflowContext, setWorkflowContext] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [localNodeData, setLocalNodeData] = useState<any>({});
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   // Fetch execution data when a node is selected
   useEffect(() => {
@@ -334,6 +336,140 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
     </div>
   );
 
+  const renderTypeScriptProperties = () => {
+    const testCode = async () => {
+      setIsTesting(true);
+      setTestResult(null);
+      
+      try {
+        const response = await fetch('/api/workflows/test-typescript', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: nodeData.code || '',
+            context: {
+              event: eventData,
+              workflow: workflowContext,
+              previous: null,
+            },
+          }),
+        });
+
+        const result = await response.json();
+        setTestResult(result);
+      } catch (error) {
+        setTestResult({ success: false, error: 'Failed to test code' });
+      } finally {
+        setIsTesting(false);
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Code Description
+          </label>
+          <input
+            type="text"
+            defaultValue={nodeData.description || ''}
+            onBlur={(e) => handleInputBlur('description', e.target.value)}
+            placeholder="What does this code do?"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Optional description for this TypeScript code
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            TypeScript Code
+          </label>
+          <textarea
+            defaultValue={nodeData.code || '// Your TypeScript code here\nconsole.log("Hello from workflow!");\nreturn { success: true };'}
+            onBlur={(e) => handleInputBlur('code', e.target.value)}
+            placeholder="// Your TypeScript code here"
+            rows={12}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Write your TypeScript code here. Use 'return' to pass data to the next node.
+          </p>
+        </div>
+
+        <div>
+          <button
+            onClick={testCode}
+            disabled={isTesting}
+            className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
+          >
+            {isTesting ? 'Testing...' : 'Test Code'}
+          </button>
+        </div>
+
+        {testResult && (
+          <div className={`border rounded-md p-3 ${
+            testResult.success 
+              ? 'bg-green-50 border-green-200' 
+              : 'bg-red-50 border-red-200'
+          }`}>
+            <h4 className={`text-sm font-medium mb-2 ${
+              testResult.success ? 'text-green-900' : 'text-red-900'
+            }`}>
+              Test Result
+            </h4>
+            <div className="text-xs space-y-1">
+              {testResult.success ? (
+                <div className="text-green-700">
+                  <div><strong>Status:</strong> Success</div>
+                  {testResult.output && (
+                    <div><strong>Output:</strong> {JSON.stringify(testResult.output, null, 2)}</div>
+                  )}
+                  {testResult.logs && testResult.logs.length > 0 && (
+                    <div>
+                      <strong>Logs:</strong>
+                      <pre className="mt-1 bg-white p-2 rounded text-xs overflow-auto max-h-20">
+                        {testResult.logs.join('\n')}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-red-700">
+                  <div><strong>Status:</strong> Failed</div>
+                  <div><strong>Error:</strong> {testResult.error}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          <h4 className="text-sm font-medium text-blue-900 mb-2">Available Variables</h4>
+          <div className="text-xs text-blue-700 space-y-1">
+            <div><code>event</code> - The triggering event data</div>
+            <div><code>workflow</code> - Workflow context and variables</div>
+            <div><code>previous</code> - Output from previous node</div>
+            <div><code>console.log()</code> - For debugging</div>
+          </div>
+        </div>
+
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+          <h4 className="text-sm font-medium text-yellow-900 mb-2">Code Execution</h4>
+          <div className="text-xs text-yellow-700">
+            <p>• Code runs in a sandboxed environment</p>
+            <p>• Return an object to pass data to next nodes</p>
+            <p>• Use try/catch for error handling</p>
+            <p>• Access previous node output via <code>previous</code> variable</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const getConditionSymbol = (conditionType: string) => {
     switch (conditionType) {
       case 'equals': return '=';
@@ -442,11 +578,23 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
         <div className="text-sm text-gray-500">
           {selectedNode.type === 'trigger' ? 'Configure when this workflow should trigger' : 'Configure the node behavior'}
         </div>
+        {/* Debug info */}
+        <div className="text-xs text-gray-400 mt-2">
+          Selected node type: {selectedNode?.type}
+        </div>
       </div>
 
       {selectedNode.type === 'trigger' && renderTriggerProperties()}
       {selectedNode.type === 'condition' && renderConditionProperties()}
       {selectedNode.type === 'action' && renderActionProperties()}
+      {selectedNode.type === 'typescript' && renderTypeScriptProperties()}
+      
+      {/* Debug: Show if no properties are rendered */}
+      {!['trigger', 'condition', 'action', 'typescript'].includes(selectedNode?.type || '') && (
+        <div className="text-sm text-gray-500">
+          No properties available for node type: {selectedNode?.type}
+        </div>
+      )}
     </div>
   );
 } 

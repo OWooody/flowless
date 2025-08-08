@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, Suspense } from 'react';
+import React, { useState, useCallback, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ReactFlow, {
   Node,
   Edge,
-  addEdge,
   Connection,
+  addEdge,
   useNodesState,
   useEdgesState,
+  ReactFlowProvider,
   Controls,
   Background,
-  ReactFlowProvider,
-  OnConnectStartParams,
+  MiniMap,
   useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -20,21 +20,16 @@ import './enhanced-ui.css';
 
 import TriggerNode from '../../components/workflows/TriggerNode';
 import ActionNode from '../../components/workflows/ActionNode';
-import PromoCodeNode from '../../components/workflows/PromoCodeNode';
 import ConditionNode from '../../components/workflows/ConditionNode';
-import SMSNode from '../../components/workflows/SMSNode';
-import PersonalizationNode from '../../components/workflows/PersonalizationNode';
+import TypeScriptNode from '../../components/workflows/TypeScriptNode';
 import NodePalette from '../../components/workflows/NodePalette';
 import PropertyPanel from '../../components/workflows/PropertyPanel';
 
 const nodeTypes = {
   trigger: TriggerNode,
   condition: ConditionNode,
-  promo_code: PromoCodeNode,
-  push_notification: ActionNode,
-  whatsapp_message: ActionNode,
-  sms_message: SMSNode,
-  personalization: PersonalizationNode,
+  action: ActionNode,
+  typescript: TypeScriptNode,
 };
 
 const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | null }) => {
@@ -258,8 +253,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       }
 
       const newNode: Node = {
-        id: `${data.nodeType}-${Date.now()}`,
-        type: data.nodeType,
+        id: `${data.type}-${Date.now()}`,
+        type: data.type,
         position,
         data: data.data,
       };
@@ -277,9 +272,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
     const triggerNodes = nodes.filter(node => node.type === 'trigger');
     const actionNodes = nodes.filter(node => 
-      node.type === 'push_notification' || 
-      node.type === 'whatsapp_message' || 
-      node.type === 'promo_code' ||
+      node.type === 'action' || 
+      node.type === 'typescript' ||
       node.type === 'condition'
     );
 
@@ -311,9 +305,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       // Convert nodes and edges to workflow format
       const triggerNodes = nodes.filter(node => node.type === 'trigger');
       const allActionNodes = nodes.filter(node => 
-        node.type === 'push_notification' || 
-        node.type === 'whatsapp_message' || 
-        node.type === 'promo_code' ||
+        node.type === 'action' || 
+        node.type === 'typescript' ||
         node.type === 'condition'
       );
 
