@@ -27,7 +27,7 @@ export default function RootLayout({
       <html lang="en" className={outfit.className}>
         <body>
           <Navigation />
-          <main>{children}</main>
+          <main className="min-h-screen">{children}</main>
         </body>
       </html>
     </ClerkProvider>

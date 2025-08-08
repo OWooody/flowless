@@ -19,8 +19,16 @@ export default function Navigation() {
   };
 
   const isDeveloperPage = pathname === '/webhooks' || pathname === '/api-keys' || pathname === '/debug';
+  
+  // Hide navigation on workflow visual builder for immersive experience
+  const isWorkflowBuilder = pathname === '/workflows/visual-builder';
 
   if (!isSignedIn) {
+    return null;
+  }
+
+  // Hide navigation on workflow builder page
+  if (isWorkflowBuilder) {
     return null;
   }
 
