@@ -193,12 +193,30 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         // This preserves the original workflow structure without assumptions
       });
       
+      // Restore saved edges if they exist
+      if (workflow.edges && Array.isArray(workflow.edges)) {
+        workflow.edges.forEach((edge: any) => {
+          workflowEdges.push({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            type: edge.type || 'smoothstep',
+            style: edge.style || {
+              strokeWidth: 3,
+              stroke: '#3b82f6',
+            },
+            animated: edge.animated !== undefined ? edge.animated : true,
+          });
+        });
+      }
+      
       console.log('Loading workflow:', {
         name: workflow.name,
         nodes: workflowNodes.length,
         edges: workflowEdges.length,
         actions: workflow.actions.length,
         actionSequence: workflow.actions.map((action: any, index: number) => `${index}: ${action.type}`),
+        savedEdges: workflow.edges?.length || 0,
         workflowData: workflow
       });
       
@@ -299,7 +317,9 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       console.log('Saving workflow with:', {
         totalActionNodes: allActionNodes.length,
         actionNodeTypes: allActionNodes.map(node => node.type),
-        actionNodeIds: allActionNodes.map(node => node.id)
+        actionNodeIds: allActionNodes.map(node => node.id),
+        totalEdges: edges.length,
+        edgeConnections: edges.map(edge => `${edge.source} -> ${edge.target}`)
       });
 
       const workflowData = {
@@ -322,6 +342,14 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
             label: node.data.label || node.type,
           };
         }),
+        edges: edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          type: edge.type,
+          style: edge.style,
+          animated: edge.animated,
+        })),
       };
 
       // Debug: Log the workflow data being sent

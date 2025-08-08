@@ -46,7 +46,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, description, trigger, actions, isActive } = body;
+    const { name, description, trigger, actions, edges, isActive } = body;
 
     // Check if workflow exists and user has access
     const existingWorkflow = await prisma.workflow.findFirst({
@@ -105,6 +105,7 @@ export async function PUT(
     if (description !== undefined) updateData.description = description;
     if (trigger !== undefined) updateData.trigger = trigger as TriggerConfig;
     if (actions !== undefined) updateData.actions = actions as ActionConfig[];
+    if (edges !== undefined) updateData.edges = edges;
     if (isActive !== undefined) updateData.isActive = isActive;
 
     const workflow = await prisma.workflow.update({

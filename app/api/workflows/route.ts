@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, description, trigger, actions } = body;
+    const { name, description, trigger, actions, edges } = body;
 
     // Debug: Log the received data
     console.log('Received workflow data:', JSON.stringify(body, null, 2));
@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
         description,
         trigger: trigger as TriggerConfig,
         actions: actions as ActionConfig[],
+        edges: edges || null,
         organizationId: session.orgId || null,
         userId: session.userId,
       },

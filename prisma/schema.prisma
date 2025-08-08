@@ -13,6 +13,7 @@ model Workflow {
   description    String?
   trigger        Json
   actions        Json[]
+  edges          Json?
   isActive       Boolean             @default(true)
   organizationId String?
   userId         String
