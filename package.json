@@ -14,7 +14,6 @@
     "@heroicons/react": "^2.2.0",
     "@prisma/client": "^6.9.0",
     "@reactflow/node-resizer": "^2.2.14",
-    "@sentry/nextjs": "^9.40.0",
     "@supabase/supabase-js": "^2.49.10",
     "@types/ua-parser-js": "^0.7.39",
     "@vercel/analytics": "^1.5.0",
