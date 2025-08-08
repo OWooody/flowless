@@ -1,10 +1,12 @@
-// Simple TypeScript code execution service
+// Generic TypeScript code execution service for workflow automation
 // Note: In a production environment, you'd want to use a proper sandboxed environment
 
 export interface ExecutionContext {
-  event?: any;
-  workflow?: any;
-  previous?: any;
+  input?: any;           // Generic input data (replaces 'event')
+  workflow?: any;         // Workflow context and variables
+  previous?: any;         // Output from previous node
+  nodeId?: string;
+  nodeType?: string;
   console: {
     log: (...args: any[]) => void;
     error: (...args: any[]) => void;
@@ -17,10 +19,17 @@ export interface ExecutionResult {
   output?: any;
   error?: string;
   logs: string[];
+  executionTime?: number;
+  dataFlow?: {
+    input?: any;
+    output?: any;
+    previousNodeOutput?: any;
+  };
 }
 
 export class TypeScriptExecutor {
   private logs: string[] = [];
+  private startTime: number = 0;
 
   constructor() {
     this.logs = [];
@@ -28,23 +37,38 @@ export class TypeScriptExecutor {
 
   async execute(code: string, context: ExecutionContext): Promise<ExecutionResult> {
     this.logs = [];
+    this.startTime = Date.now();
     
     try {
-      // Create a safe execution environment
+      // Log the input data for debugging
+      this.logs.push(`INPUT: Input data: ${JSON.stringify(context.input, null, 2)}`);
+      this.logs.push(`INPUT: Previous node output: ${JSON.stringify(context.previous, null, 2)}`);
+      this.logs.push(`INPUT: Workflow context: ${JSON.stringify(context.workflow, null, 2)}`);
+
+      // Create a safe execution environment with enhanced utilities
       const safeContext = {
         ...context,
         console: {
           log: (...args: any[]) => {
-            this.logs.push(`LOG: ${args.map(arg => JSON.stringify(arg)).join(' ')}`);
+            const message = args.map(arg => 
+              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            this.logs.push(`LOG: ${message}`);
           },
           error: (...args: any[]) => {
-            this.logs.push(`ERROR: ${args.map(arg => JSON.stringify(arg)).join(' ')}`);
+            const message = args.map(arg => 
+              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            this.logs.push(`ERROR: ${message}`);
           },
           warn: (...args: any[]) => {
-            this.logs.push(`WARN: ${args.map(arg => JSON.stringify(arg)).join(' ')}`);
+            const message = args.map(arg => 
+              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            this.logs.push(`WARN: ${message}`);
           },
         },
-        // Add some safe utility functions
+        // Enhanced utility functions for data processing
         JSON: {
           stringify: JSON.stringify,
           parse: JSON.parse,
@@ -56,11 +80,69 @@ export class TypeScriptExecutor {
         String: String,
         Number: Number,
         Boolean: Boolean,
+        // Add fetch for API calls
+        fetch: fetch,
+        // Add utility functions for common data operations
+        utils: {
+          // Deep merge objects
+          merge: (target: any, ...sources: any[]) => {
+            return sources.reduce((acc, source) => {
+              return Object.keys(source).reduce((obj, key) => {
+                if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                  obj[key] = safeContext.utils.merge(obj[key] || {}, source[key]);
+                } else {
+                  obj[key] = source[key];
+                }
+                return obj;
+              }, acc);
+            }, target);
+          },
+          // Get nested object property safely
+          get: (obj: any, path: string, defaultValue?: any) => {
+            return path.split('.').reduce((current, key) => {
+              return current && current[key] !== undefined ? current[key] : defaultValue;
+            }, obj);
+          },
+          // Set nested object property
+          set: (obj: any, path: string, value: any) => {
+            const keys = path.split('.');
+            const lastKey = keys.pop()!;
+            const target = keys.reduce((current, key) => {
+              if (!current[key] || typeof current[key] !== 'object') {
+                current[key] = {};
+              }
+              return current[key];
+            }, obj);
+            target[lastKey] = value;
+            return obj;
+          },
+          // Transform data structures
+          transform: (data: any, transformer: (item: any) => any) => {
+            if (Array.isArray(data)) {
+              return data.map(transformer);
+            }
+            return transformer(data);
+          },
+          // Filter data
+          filter: (data: any, predicate: (item: any) => boolean) => {
+            if (Array.isArray(data)) {
+              return data.filter(predicate);
+            }
+            return predicate(data) ? data : null;
+          },
+        },
       };
 
-      // Create the function from the code
+      // Create the function from the code with enhanced context
       const functionBody = `
         try {
+          // Log available variables for debugging
+          console.log('Available variables:');
+          console.log('- input:', input);
+          console.log('- workflow:', workflow);
+          console.log('- previous:', previous);
+          console.log('- utils:', utils);
+          
           ${code}
         } catch (error) {
           throw new Error('Code execution error: ' + error.message);
@@ -69,13 +151,13 @@ export class TypeScriptExecutor {
 
       // Create a function with the safe context
       const func = new Function(
-        'event', 'workflow', 'previous', 'console', 'JSON', 'Date', 'Math', 'Array', 'Object', 'String', 'Number', 'Boolean',
+        'input', 'workflow', 'previous', 'console', 'JSON', 'Date', 'Math', 'Array', 'Object', 'String', 'Number', 'Boolean', 'fetch', 'utils',
         functionBody
       );
 
       // Execute the function
       const result = await func(
-        context.event,
+        context.input,
         context.workflow,
         context.previous,
         safeContext.console,
@@ -86,19 +168,48 @@ export class TypeScriptExecutor {
         safeContext.Object,
         safeContext.String,
         safeContext.Number,
-        safeContext.Boolean
+        safeContext.Boolean,
+        safeContext.fetch,
+        safeContext.utils
       );
+
+      const executionTime = Date.now() - this.startTime;
+      this.logs.push(`OUTPUT: ${JSON.stringify(result, null, 2)}`);
+      this.logs.push(`EXECUTION_TIME: ${executionTime}ms`);
 
       return {
         success: true,
         output: result,
         logs: this.logs,
+        executionTime,
+        dataFlow: {
+          input: {
+            input: context.input,
+            previous: context.previous,
+            workflow: context.workflow
+          },
+          output: result,
+          previousNodeOutput: context.previous
+        }
       };
     } catch (error) {
+      const executionTime = Date.now() - this.startTime;
+      this.logs.push(`ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         logs: this.logs,
+        executionTime,
+        dataFlow: {
+          input: {
+            input: context.input,
+            previous: context.previous,
+            workflow: context.workflow
+          },
+          output: null,
+          previousNodeOutput: context.previous
+        }
       };
     }
   }

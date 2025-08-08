@@ -15,7 +15,7 @@ const nodeTemplates: NodeTemplate[] = [
   {
     type: 'trigger',
     label: 'Trigger',
-    description: 'Start workflow when event occurs',
+    description: 'Start workflow with input data',
     icon: '⚡',
     data: {
       triggerType: 'webhook',
@@ -56,10 +56,10 @@ const nodeTemplates: NodeTemplate[] = [
   {
     type: 'typescript',
     label: 'TypeScript',
-    description: 'Execute TypeScript code',
+    description: 'Execute custom TypeScript code',
     icon: '📝',
     data: {
-      code: '// Your TypeScript code here\nconsole.log("Hello from workflow!");\nreturn { success: true };',
+      code: '// Generic data processing example\nconsole.log("Input data:", input);\nconsole.log("Previous node output:", previous);\n\n// Process any type of data\nconst result = {\n  processed: true,\n  timestamp: new Date().toISOString(),\n  inputData: input,\n  previousData: previous || {},\n  // Add your custom processing logic here\n};\n\nconsole.log("Processing result:", result);\nreturn result;',
       description: '',
     },
   },

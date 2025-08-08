@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     const executor = new TypeScriptExecutor();
-    
+
     // Validate syntax first
     const validation = executor.validateSyntax(code);
     if (!validation.isValid) {
@@ -30,17 +30,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Execute the code
-    const result = await executor.execute(code, {
-      event: context.event || {},
-      workflow: context.workflow || {},
-      previous: context.previous || {},
+    // Create enhanced context for testing with generic data
+    const testContext = {
+      input: context.input || {
+        // Generic input data - can be anything
+        type: 'data_processing',
+        data: { 
+          items: [
+            { id: 1, name: 'Item 1', value: 100 },
+            { id: 2, name: 'Item 2', value: 200 },
+            { id: 3, name: 'Item 3', value: 150 }
+          ],
+          metadata: {
+            source: 'test',
+            timestamp: new Date().toISOString()
+          }
+        },
+        timestamp: new Date().toISOString()
+      },
+      workflow: context.workflow || {
+        id: 'test-workflow',
+        name: 'Generic Data Processing Workflow',
+        variables: { 
+          processingMode: 'batch',
+          maxItems: 1000,
+          outputFormat: 'json'
+        }
+      },
+      previous: context.previous || {
+        // Simulate previous node output - generic data
+        processedCount: 3,
+        totalValue: 450,
+        status: 'ready_for_next_step',
+        timestamp: new Date().toISOString()
+      },
+      nodeId: 'test-node',
+      nodeType: 'typescript',
       console: {
         log: (...args: any[]) => console.log(...args),
         error: (...args: any[]) => console.error(...args),
         warn: (...args: any[]) => console.warn(...args),
       },
-    });
+    };
+
+    // Execute the code
+    const result = await executor.execute(code, testContext);
 
     return NextResponse.json(result);
   } catch (error) {
