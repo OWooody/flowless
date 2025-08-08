@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DM Serif Text Font */
+@font-face {
+  font-family: 'DM Serif Text';
+  src: url('/fonts/DMSerifText-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'DM Serif Text';
+  src: url('/fonts/DMSerifText-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Hide navigation on landing page */
+.landing-page nav {
+  display: none !important;
+}
+
+/* Form Input Styles */
+@layer components {
+  .form-input {
+    @apply px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm;
+  }
+  
+  .form-textarea {
+    @apply px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none;
+  }
+  
+  .form-select {
+    @apply px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm;
+  }
+} 

@@ -1,0 +1,515 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id             String   @id @default(cuid())
+  name           String
+  properties     Json?
+  timestamp      DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  referrer       String?
+  userAgent      String?
+  action         String?
+  category       String   @default("engagement")
+  itemCategory   String?
+  itemId         String?
+  itemName       String?
+  pageTitle      String?
+  path           String?
+  value          Float?
+  planId         String?
+  organizationId String?
+  userId         String?
+  userPhone      String?
+
+  @@index([timestamp])
+  @@index([name])
+  @@index([category])
+  @@index([action])
+  @@index([itemId])
+  @@index([itemCategory])
+  @@index([planId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([userPhone])
+}
+
+model Webhook {
+  id                 String    @id @default(cuid())
+  url                String
+  secret             String
+  events             String[]
+  isActive           Boolean   @default(true)
+  organizationId     String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lastTriggered      DateTime?
+  failureCount       Int       @default(0)
+  eventName          String?
+  filterItemCategory String?
+  filterItemName     String?
+  filterValue        Float?
+  filterItemId       String?
+
+  @@index([organizationId])
+  @@index([events])
+  @@index([eventName])
+  @@index([filterItemName])
+  @@index([filterItemCategory])
+  @@index([filterItemId])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  messages  Json[]
+  state     Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AnalyticsQuery {
+  id            String   @id @default(cuid())
+  userId        String
+  query         String
+  queryType     String
+  result        Json?
+  executionTime Int?
+  status        String   @default("pending")
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([queryType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model UserSegment {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  query             String
+  userCount         Int?
+  criteria          Json?
+  isActive          Boolean  @default(true)
+  userId            String
+  organizationId    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdFromAiChat Boolean  @default(false)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([createdFromAiChat])
+}
+
+model NotificationCampaign {
+  id              String    @id @default(cuid())
+  name            String
+  message         String
+  offerCode       String?
+  targetSegment   String?
+  segmentId       String?
+  estimatedUsers  Int?
+  status          String    @default("draft")
+  sentCount       Int       @default(0)
+  openCount       Int       @default(0)
+  clickCount      Int       @default(0)
+  conversionCount Int       @default(0)
+  userId          String
+  organizationId  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdAt])
+}
+
+model PushSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  organizationId String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([endpoint])
+}
+
+model CampaignDelivery {
+  id           String    @id @default(cuid())
+  campaignId   String
+  userId       String
+  pushEndpoint String?
+  status       String    @default("pending")
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([userId])
+  @@index([status])
+  @@index([sentAt])
+}
+
+model AnalyticsCache {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([key])
+  @@index([expiresAt])
+}
+
+model EventDefinition {
+  id             String   @id @default(cuid())
+  name           String
+  description    String
+  category       String
+  properties     Json?
+  examples       Json?
+  isActive       Boolean  @default(true)
+  userId         String
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([name])
+  @@index([category])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model BusinessMetric {
+  id             String   @id @default(cuid())
+  name           String
+  description    String
+  formula        String
+  category       String
+  unit           String?
+  examples       Json?
+  isActive       Boolean  @default(true)
+  userId         String
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([name])
+  @@index([category])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model KnowledgeEntry {
+  id             String   @id @default(cuid())
+  title          String
+  content        String
+  tags           String[]
+  category       String
+  isActive       Boolean  @default(true)
+  userId         String
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([title])
+  @@index([tags])
+  @@index([category])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model Workflow {
+  id             String              @id @default(cuid())
+  name           String
+  description    String?
+  trigger        Json
+  actions        Json[]
+  isActive       Boolean             @default(true)
+  organizationId String?
+  userId         String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  executions     WorkflowExecution[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model WorkflowExecution {
+  id                   String         @id @default(cuid())
+  workflowId           String
+  eventId              String?
+  status               String
+  results              Json?
+  startedAt            DateTime       @default(now())
+  completedAt          DateTime?
+  errorMessage         String?
+  databaseQueriesCount Int?
+  errorDetails         Json?
+  memoryUsageMb        Int?
+  totalDurationMs      Int?
+  triggerEvent         Json?
+  workflow             Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  steps                WorkflowStep[]
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([completedAt])
+}
+
+model WorkflowStep {
+  id           String            @id @default(cuid())
+  executionId  String
+  stepOrder    Int
+  stepType     String
+  stepName     String
+  status       String
+  startTime    DateTime          @default(now())
+  endTime      DateTime?
+  durationMs   Int?
+  inputData    Json?
+  outputData   Json?
+  errorMessage String?
+  metadata     Json?
+  execution    WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([stepOrder])
+  @@index([stepType])
+  @@index([status])
+  @@index([startTime])
+}
+
+model WhatsAppProvider {
+  id             String             @id @default(cuid())
+  organizationId String
+  providerName   String
+  displayName    String
+  isActive       Boolean            @default(true)
+  credentials    Json
+  config         Json?
+  webhookUrl     String?
+  webhookSecret  String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  templates      WhatsAppTemplate[]
+
+  @@index([organizationId])
+  @@index([providerName])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model WhatsAppTemplate {
+  id             String           @id @default(cuid())
+  providerId     String
+  organizationId String
+  templateName   String
+  displayName    String
+  category       String
+  language       String           @default("en")
+  variables      Json?
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  provider       WhatsAppProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([organizationId])
+  @@index([templateName])
+  @@index([category])
+  @@index([language])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model SMSProvider {
+  id             String        @id @default(cuid())
+  organizationId String
+  providerName   String
+  displayName    String
+  isActive       Boolean       @default(true)
+  credentials    Json
+  config         Json?
+  webhookUrl     String?
+  webhookSecret  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  templates      SMSTemplate[]
+
+  @@index([organizationId])
+  @@index([providerName])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model SMSTemplate {
+  id             String      @id @default(cuid())
+  providerId     String
+  organizationId String
+  templateName   String
+  displayName    String
+  category       String
+  language       String      @default("en")
+  variables      Json?
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  provider       SMSProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([organizationId])
+  @@index([templateName])
+  @@index([category])
+  @@index([language])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model UserPhone {
+  id             String    @id @default(cuid())
+  userId         String
+  organizationId String?
+  phoneNumber    String
+  countryCode    String
+  isVerified     Boolean   @default(false)
+  isOptedIn      Boolean   @default(false)
+  optInDate      DateTime?
+  optOutDate     DateTime?
+  lastUsed       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, phoneNumber])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([phoneNumber])
+  @@index([countryCode])
+  @@index([isVerified])
+  @@index([isOptedIn])
+  @@index([createdAt])
+}
+
+model PromoCodeBatch {
+  id             String      @id @default(cuid())
+  name           String
+  description    String?
+  totalCodes     Int         @default(0)
+  usedCodes      Int         @default(0)
+  discountType   String
+  discountValue  Float
+  minOrderValue  Float?
+  maxUses        Int?
+  validFrom      DateTime    @default(now())
+  validUntil     DateTime?
+  isActive       Boolean     @default(true)
+  userId         String
+  organizationId String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  promoCodes     PromoCode[]
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([name])
+  @@index([isActive])
+  @@index([validFrom])
+  @@index([validUntil])
+  @@index([createdAt])
+}
+
+model PromoCode {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  batchId        String
+  isUsed         Boolean        @default(false)
+  usedAt         DateTime?
+  usedBy         String?
+  orderId        String?
+  discountAmount Float?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  batch          PromoCodeBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([code])
+  @@index([isUsed])
+  @@index([usedAt])
+  @@index([usedBy])
+  @@index([createdAt])
+}
+
+model PersonalizationRule {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  conditions     Json     // Array of PersonalizationCondition
+  content        Json     // DynamicContent object
+  priority       Int      @default(0)
+  isActive       Boolean  @default(true)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model PersonalizationTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  type           String   // 'email', 'sms', 'push'
+  content        String
+  variables      Json?    // Array of variable names
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([createdAt])
+}
