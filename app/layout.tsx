@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import * as Sentry from '@sentry/nextjs';
 import { Outfit } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
@@ -9,11 +8,8 @@ const outfit = Outfit({ subsets: ['latin'] });
 
 export function generateMetadata(): Metadata {
   return {
-    title: 'Track - User Behavior Analytics',
-    description: 'Track and analyze user behavior on your website',
-    other: {
-      ...Sentry.getTraceData()
-    }
+    title: 'Flowless - Workflow Automation',
+    description: 'Build and automate workflows with ease',
   };
 }
 
