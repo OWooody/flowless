@@ -21,7 +21,7 @@ const nodeTemplates: NodeTemplate[] = [
       triggerType: 'webhook',
       webhookUrl: '',
       schedule: '',
-      description: '',
+      label: 'Trigger',
     },
   },
   {
@@ -33,7 +33,7 @@ const nodeTemplates: NodeTemplate[] = [
       conditionType: 'equals',
       leftOperand: '',
       rightOperand: '',
-      description: '',
+      label: 'Condition',
     },
   },
   {
@@ -50,7 +50,7 @@ const nodeTemplates: NodeTemplate[] = [
       script: '',
       webhookUrl: '',
       webhookPayload: '',
-      description: '',
+      label: 'Action',
     },
   },
   {
@@ -60,7 +60,7 @@ const nodeTemplates: NodeTemplate[] = [
     icon: '📝',
     data: {
       code: '// Generic data processing example\nconsole.log("Input data:", input);\nconsole.log("Previous node output:", previous);\n\n// Process any type of data\nconst result = {\n  processed: true,\n  timestamp: new Date().toISOString(),\n  inputData: input,\n  previousData: previous || {},\n  // Add your custom processing logic here\n};\n\nconsole.log("Processing result:", result);\nreturn result;',
-      description: '',
+      label: 'TypeScript Code',
     },
   },
 ];

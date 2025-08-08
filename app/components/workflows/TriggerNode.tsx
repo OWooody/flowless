@@ -1,20 +1,50 @@
 'use client';
 
-import { memo } from 'react';
-import { Handle, Position, NodeProps } from 'reactflow';
+import { memo, useState, useCallback } from 'react';
+import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 
 interface TriggerNodeData {
-  eventType: string;
-  eventName?: string;
-  filterItemName?: string;
-  filterItemCategory?: string;
-  filterItemId?: string;
-  filterValue?: number;
+  triggerType: string;
+  webhookUrl?: string;
+  schedule?: string;
+  description?: string;
+  label?: string;
 }
 
-const TriggerNode = memo(({ data }: NodeProps<TriggerNodeData>) => {
+const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(data.label || 'Trigger');
+  const { setNodes } = useReactFlow();
+
+  const handleDoubleClick = useCallback(() => {
+    setIsEditing(true);
+    setEditValue(data.label || 'Trigger');
+  }, [data.label]);
+
+  const handleBlur = useCallback(() => {
+    setIsEditing(false);
+    if (editValue.trim() !== data.label) {
+      setNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === id
+            ? { ...node, data: { ...node.data, label: editValue.trim() || 'Trigger' } }
+            : node
+        )
+      );
+    }
+  }, [editValue, data.label, id, setNodes]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleBlur();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditValue(data.label || 'Trigger');
+    }
+  }, [handleBlur, data.label]);
+
   return (
-    <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg border-2 border-blue-400 min-w-[200px]">
+    <div className={`bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-blue-300' : 'border-blue-400'} min-w-[200px]`}>
       <Handle type="source" position={Position.Right} className="w-3 h-3 bg-white" />
       
       <div className="p-4">
@@ -24,33 +54,39 @@ const TriggerNode = memo(({ data }: NodeProps<TriggerNodeData>) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <div>
-            <h3 className="font-semibold text-sm">Trigger</h3>
-            <p className="text-xs text-blue-100">When event occurs</p>
+          <div className="flex-1">
+            {isEditing ? (
+              <input
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                className="text-sm font-semibold bg-transparent border-none outline-none focus:ring-0 w-full text-white placeholder-white"
+                autoFocus
+                placeholder="Trigger"
+              />
+            ) : (
+              <div 
+                className="text-sm font-semibold cursor-pointer hover:bg-white hover:bg-opacity-10 px-1 py-0.5 rounded"
+                onDoubleClick={handleDoubleClick}
+                title="Double-click to edit"
+              >
+                {data.label || 'Trigger'}
+              </div>
+            )}
+            <p className="text-xs text-blue-100">Start workflow with input data</p>
           </div>
         </div>
         
         <div className="bg-white bg-opacity-10 rounded p-2">
           <div className="text-xs space-y-1">
-            {data.eventName && data.eventName.trim() ? (
-              <div className="font-medium">Event: {data.eventName}</div>
-            ) : (
-              <div className="font-medium">Event Type: {data.eventType}</div>
+            <div className="font-medium">Type: {data.triggerType}</div>
+            {data.webhookUrl && (
+              <div className="text-blue-100">Webhook: {data.webhookUrl}</div>
             )}
-            {data.eventName && data.eventName.trim() && data.eventType && (
-              <div className="text-blue-100">Type: {data.eventType}</div>
-            )}
-            {data.filterItemName && (
-              <div className="text-blue-100">Item: {data.filterItemName}</div>
-            )}
-            {data.filterItemCategory && (
-              <div className="text-blue-100">Category: {data.filterItemCategory}</div>
-            )}
-            {data.filterItemId && (
-              <div className="text-blue-100">ID: {data.filterItemId}</div>
-            )}
-            {data.filterValue !== undefined && data.filterValue !== null && (
-              <div className="text-blue-100">Value: {data.filterValue}</div>
+            {data.schedule && (
+              <div className="text-blue-100">Schedule: {data.schedule}</div>
             )}
           </div>
         </div>

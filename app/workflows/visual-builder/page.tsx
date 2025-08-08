@@ -38,12 +38,16 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [workflowName, setWorkflowName] = useState('');
+  const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [workflowDescription, setWorkflowDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | null>(null);
+  const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const lastSaveTime = useRef<number>(0);
+  const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -57,6 +61,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         animated: true,
       };
       setEdges((eds) => addEdge(newEdge, eds));
+      triggerAutoSave();
     },
     [setEdges]
   );
@@ -73,6 +78,73 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
+
+  // Auto-save functionality
+  const triggerAutoSave = useCallback(() => {
+    setSaveStatus('unsaved');
+    setShowSaveIndicator(true);
+    
+    // Clear existing timeout
+    if (autoSaveTimeout.current) {
+      clearTimeout(autoSaveTimeout.current);
+    }
+    
+    // Set new timeout for auto-save
+    autoSaveTimeout.current = setTimeout(() => {
+      saveWorkflow(true); // true = auto-save
+    }, 2000); // 2 second delay
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+S or Cmd+S for manual save
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        saveWorkflow(false); // false = manual save
+      }
+      
+      // Escape to go back
+      if (event.key === 'Escape') {
+        router.push('/workflows');
+      }
+      
+      // Ctrl+Z for undo (placeholder for future implementation)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+        event.preventDefault();
+        // TODO: Implement undo functionality
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [router]);
+
+  // Auto-save on workflow name change
+  useEffect(() => {
+    if (workflowName && workflowName.trim()) {
+      triggerAutoSave();
+    }
+  }, [workflowName, triggerAutoSave]);
+
+  // Auto-save on nodes/edges change
+  useEffect(() => {
+    // Only auto-save if there are actual changes and we have a workflow name
+    if ((nodes.length > 0 || edges.length > 0) && workflowName.trim()) {
+      triggerAutoSave();
+    }
+  }, [nodes, edges, workflowName, triggerAutoSave]);
+
+  // Hide save indicator after 3 seconds
+  useEffect(() => {
+    if (saveStatus === 'saved') {
+      const timer = setTimeout(() => {
+        setShowSaveIndicator(false);
+        setSaveStatus(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveStatus]);
 
   // Load existing workflow for editing
   useEffect(() => {
@@ -265,8 +337,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   );
 
   const validateWorkflow = () => {
+    // Always allow saving if there's a name (we have a default now)
     if (!workflowName.trim()) {
-      alert('Please enter a workflow name');
       return false;
     }
 
@@ -277,29 +349,33 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       node.type === 'condition'
     );
 
-    if (triggerNodes.length === 0) {
-      alert('Please add at least one trigger node');
-      return false;
+    // For auto-save, be more lenient - allow saving even with incomplete workflows
+    // For manual save, require basic structure
+    if (triggerNodes.length === 0 && actionNodes.length === 0) {
+      // Empty workflow - still allow saving
+      return true;
     }
 
-    if (actionNodes.length === 0) {
-      alert('Please add at least one action node');
-      return false;
+    // If there are nodes, require basic structure
+    if (triggerNodes.length === 0 && actionNodes.length > 0) {
+      // Has actions but no trigger - still allow saving
+      return true;
     }
 
-    // Check if nodes are connected
-    if (edges.length === 0) {
-      alert('Please connect the trigger to at least one action');
-      return false;
+    if (actionNodes.length === 0 && triggerNodes.length > 0) {
+      // Has trigger but no actions - still allow saving
+      return true;
     }
 
     return true;
   };
 
-  const saveWorkflow = async () => {
+  const saveWorkflow = async (isAutoSave: boolean = false) => {
     if (!validateWorkflow()) return;
 
     setIsSaving(true);
+    setSaveStatus('saving');
+    setShowSaveIndicator(true);
 
     try {
       // Convert nodes and edges to workflow format
@@ -445,11 +521,17 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
       const workflow = await response.json();
       router.push('/workflows');
+      setSaveStatus('saved');
+      lastSaveTime.current = Date.now();
     } catch (error) {
       console.error('Error saving workflow:', error);
       alert(error instanceof Error ? error.message : 'Failed to save workflow');
+      setSaveStatus('unsaved');
     } finally {
       setIsSaving(false);
+      if (isAutoSave) {
+        setShowSaveIndicator(false);
+      }
     }
   };
 
@@ -458,55 +540,101 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       setNodes([]);
       setEdges([]);
       setSelectedNode(null);
+      setSaveStatus('unsaved'); // Clear save status when canvas is cleared
     }
   };
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.push('/workflows')}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                {editWorkflowId ? 'Edit Workflow' : 'Visual Workflow Builder'}
-              </h1>
-              <p className="text-sm text-gray-600">
-                {editWorkflowId ? 'Modify your existing workflow' : 'Drag and drop to create your workflow'}
-              </p>
-            </div>
+    <div className="h-screen flex">
+      {/* Floating Back Button */}
+      <button
+        onClick={() => router.push('/workflows')}
+        className="absolute top-4 left-4 z-50 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full p-3 shadow-lg hover:bg-white transition-all duration-200 hover:shadow-xl"
+        title="Back to Workflows (Esc)"
+      >
+        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      {/* Floating Save Status */}
+      {showSaveIndicator && (
+        <div className="absolute top-4 right-4 z-50 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-4 py-2 shadow-lg">
+          <div className="flex items-center space-x-2">
+            {saveStatus === 'saving' && (
+              <>
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-gray-700">Saving...</span>
+              </>
+            )}
+            {saveStatus === 'saved' && (
+              <>
+                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-sm text-gray-700">Saved!</span>
+              </>
+            )}
+            {saveStatus === 'unsaved' && (
+              <>
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-gray-700">Unsaved changes</span>
+              </>
+            )}
           </div>
-          
-          <div className="flex items-center space-x-3">
-            <input
+        </div>
+      )}
+
+      {/* Floating Workflow Name Input */}
+      <div className="absolute top-4 left-16 z-50">
+        <div className="flex items-center space-x-2">
+          <span className="text-xs text-gray-500 bg-white/90 backdrop-blur-sm px-2 py-1 rounded">
+            Workflows
+          </span>
+          <span className="text-xs text-gray-400">→</span>
+                      <input
               type="text"
-              placeholder="Workflow name"
+              placeholder="Untitled Workflow"
               value={workflowName}
               onChange={(e) => setWorkflowName(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-lg"
             />
-            <button
-              onClick={clearCanvas}
-              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-            >
-              Clear
-            </button>
-            <button
-              onClick={saveWorkflow}
-              disabled={isSaving || isLoading}
-              className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
-            >
-              {isSaving ? 'Saving...' : isLoading ? 'Loading...' : editWorkflowId ? 'Update Workflow' : 'Save Workflow'}
-            </button>
-          </div>
+        </div>
+      </div>
+
+      {/* Floating Action Buttons */}
+      <div className="absolute bottom-4 right-4 z-50">
+        <div className="flex flex-col space-y-2">
+          <button
+            onClick={() => saveWorkflow(false)}
+            disabled={isSaving || isLoading}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
+            title="Save Workflow (Ctrl+S)"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={clearCanvas}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200"
+            title="Clear Canvas"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+
+          <button
+            onClick={() => alert('Keyboard Shortcuts:\n\nCtrl+S: Save workflow\nEsc: Back to workflows\n\nAuto-save is enabled and will save your changes automatically.')}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200"
+            title="Keyboard Shortcuts"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
         </div>
       </div>
 

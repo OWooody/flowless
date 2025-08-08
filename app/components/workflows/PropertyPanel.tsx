@@ -195,18 +195,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
-        </label>
-        <input
-          type="text"
-          defaultValue={nodeData.description || ''}
-          onBlur={(e) => handleInputBlur('description', e.target.value)}
-          placeholder="What triggers this workflow?"
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
+
     </div>
   );
 
@@ -368,22 +357,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
 
     return (
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Code Description
-          </label>
-          <input
-            type="text"
-            defaultValue={nodeData.description || ''}
-            onBlur={(e) => handleInputBlur('description', e.target.value)}
-            placeholder="What does this code do?"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Optional description for this TypeScript code
-          </p>
-        </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             TypeScript Code
@@ -587,21 +560,7 @@ return {
         </p>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description (Optional)
-        </label>
-        <input
-          type="text"
-          defaultValue={nodeData.description || ''}
-          onBlur={(e) => handleInputBlur('description', e.target.value)}
-          placeholder="e.g., Check if user is VIP"
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Optional description for this condition
-        </p>
-      </div>
+
 
       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
         <h4 className="text-sm font-medium text-blue-900 mb-2">Condition Preview</h4>
@@ -609,28 +568,67 @@ return {
           <div className="font-mono">
             {nodeData.leftOperand || 'Left operand'} {getConditionSymbol(nodeData.conditionType)} {nodeData.rightOperand || 'Right operand'}
           </div>
-          {nodeData.description && (
-            <div className="mt-1 text-blue-600 italic">
-              "{nodeData.description}"
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 
+  const getNodeIcon = (type: string) => {
+    switch (type) {
+      case 'trigger':
+        return (
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+        );
+      case 'condition':
+        return (
+          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+            <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        );
+      case 'action':
+        return (
+          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        );
+      case 'typescript':
+        return (
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+            <span className="text-blue-600 text-sm font-bold">TS</span>
+          </div>
+        );
+      default:
+        return (
+          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+          </div>
+        );
+    }
+  };
+
+  const getNodeTitle = () => {
+    const nodeName = nodeData?.label || selectedNode?.type || 'Node';
+    return nodeName;
+  };
+
   return (
     <div className="p-4 bg-white border-l border-gray-200 w-80 overflow-y-auto">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          {selectedNode.type === 'trigger' ? 'Trigger Properties' : 'Node Properties'}
-        </h3>
-        <div className="text-sm text-gray-500">
-          {selectedNode.type === 'trigger' ? 'Configure when this workflow should trigger' : 'Configure the node behavior'}
-        </div>
-        {/* Debug info */}
-        <div className="text-xs text-gray-400 mt-2">
-          Selected node type: {selectedNode?.type}
+        <div className="flex items-center mb-2">
+          {getNodeIcon(selectedNode?.type || '')}
+          <h3 className="text-lg font-semibold text-gray-900">
+            {getNodeTitle()}
+          </h3>
         </div>
       </div>
 

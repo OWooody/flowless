@@ -1,16 +1,48 @@
 'use client';
 
-import { memo } from 'react';
-import { Handle, Position, NodeProps } from 'reactflow';
+import { memo, useState, useCallback } from 'react';
+import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 
 interface ConditionNodeData {
   conditionType: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'not_contains';
   leftOperand: string;
   rightOperand: string;
-  description: string;
+  description?: string;
+  label?: string;
 }
 
-const ConditionNode = memo(({ data }: NodeProps<ConditionNodeData>) => {
+const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(data.label || 'Condition');
+  const { setNodes } = useReactFlow();
+
+  const handleDoubleClick = useCallback(() => {
+    setIsEditing(true);
+    setEditValue(data.label || 'Condition');
+  }, [data.label]);
+
+  const handleBlur = useCallback(() => {
+    setIsEditing(false);
+    if (editValue.trim() !== data.label) {
+      setNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === id
+            ? { ...node, data: { ...node.data, label: editValue.trim() || 'Condition' } }
+            : node
+        )
+      );
+    }
+  }, [editValue, data.label, id, setNodes]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleBlur();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditValue(data.label || 'Condition');
+    }
+  }, [handleBlur, data.label]);
+
   const getConditionSymbol = (type: string) => {
     switch (type) {
       case 'equals': return '=';
@@ -24,7 +56,7 @@ const ConditionNode = memo(({ data }: NodeProps<ConditionNodeData>) => {
   };
 
   return (
-    <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg shadow-lg border-2 border-orange-400 min-w-[200px]">
+    <div className={`bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-orange-300' : 'border-orange-400'} min-w-[200px]`}>
       <Handle
         type="target"
         position={Position.Left}
@@ -57,8 +89,27 @@ const ConditionNode = memo(({ data }: NodeProps<ConditionNodeData>) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <div>
-            <h3 className="font-semibold text-sm">Condition</h3>
+          <div className="flex-1">
+            {isEditing ? (
+              <input
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                className="text-sm font-semibold bg-transparent border-none outline-none focus:ring-0 w-full text-white placeholder-white"
+                autoFocus
+                placeholder="Condition"
+              />
+            ) : (
+              <div 
+                className="text-sm font-semibold cursor-pointer hover:bg-white hover:bg-opacity-10 px-1 py-0.5 rounded"
+                onDoubleClick={handleDoubleClick}
+                title="Double-click to edit"
+              >
+                {data.label || 'Condition'}
+              </div>
+            )}
             <p className="text-xs text-orange-100">
               {data.conditionType.replace('_', ' ')}
             </p>
@@ -78,12 +129,6 @@ const ConditionNode = memo(({ data }: NodeProps<ConditionNodeData>) => {
             </div>
           </div>
         </div>
-        
-        {data.description && (
-          <div className="mt-2 text-xs text-orange-100 bg-white bg-opacity-10 rounded p-1">
-            {data.description}
-          </div>
-        )}
         
         {/* Branch labels */}
         <div className="mt-2 flex justify-between text-xs">
