@@ -107,14 +107,14 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
 
   return (
     <div 
-      className={`shadow-md rounded-md bg-white text-gray-800 border-2 transition-all duration-200 ${
-        selected ? 'border-blue-300' : 'border-gray-300'
+      className={`shadow-md rounded-md bg-gray-100 text-gray-800 border-2 transition-all duration-200 ${
+        selected ? 'border-gray-400' : 'border-gray-300'
       } ${isExpanded ? 'min-w-[400px]' : 'w-auto'}`}
       onClick={handleNodeClick}
     >
       <div className="px-4 py-2">
         <div className="flex items-center">
-          <div className="rounded-full w-8 h-8 flex items-center justify-center bg-gray-100">
+          <div className="rounded-full w-8 h-8 flex items-center justify-center bg-gray-200">
             <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
             </svg>
@@ -132,7 +132,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
               />
             ) : (
               <div 
-                className="text-sm font-bold cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+                className="text-sm font-bold cursor-pointer hover:bg-gray-200 px-1 py-0.5 rounded"
                 onDoubleClick={handleDoubleClick}
                 title="Double-click to edit name"
               >
@@ -146,22 +146,22 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
 
       {isExpanded && (
         <div className="px-4 pb-4">
-          <div className="bg-gray-900 rounded-md border border-gray-300 overflow-hidden shadow-lg">
-            <div className="bg-gray-100 px-3 py-2 border-b border-gray-300 flex items-center justify-between">
-              <div className="text-xs text-gray-600 font-mono">JavaScript</div>
+          <div className="bg-gray-800 rounded-md border border-gray-600 overflow-hidden shadow-lg">
+            <div className="bg-gray-700 px-3 py-2 border-b border-gray-600 flex items-center justify-between">
+              <div className="text-xs text-gray-300 font-mono">JavaScript</div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleRunCode();
                 }}
                 disabled={isRunning || !codeValue.trim()}
-                className="p-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors"
+                className="p-1.5 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-md transition-colors"
                 title="Run code"
               >
                 {isRunning ? (
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
                   </svg>
                 )}
@@ -174,7 +174,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
                 onChange={handleCodeChange}
                 onBlur={handleCodeBlur}
                 placeholder="// Your code here..."
-                className="w-full bg-gray-900 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0"
+                className="w-full bg-gray-800 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0"
                 style={{
                   fontFamily: 'monospace',
                   lineHeight: '1.5',
@@ -191,8 +191,8 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       {/* Run Results */}
       {runResult && (
         <div className="px-4 pb-4">
-          <div className="bg-gray-50 rounded-md border border-gray-200 overflow-hidden">
-            <div className="bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between">
+          <div className="bg-gray-200 rounded-md border border-gray-400 overflow-hidden">
+            <div className="bg-gray-300 px-3 py-2 border-b border-gray-400 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -214,16 +214,16 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
             <div className="p-3">
               {runResult.success ? (
                 <div className="text-sm">
-                  <div className="font-medium text-green-700 mb-2">✅ Success</div>
+                  <div className="font-medium text-gray-700 mb-2">✅ Success</div>
                   {runResult.output && (
-                    <pre className="bg-white p-2 rounded border border-gray-200 text-xs overflow-auto max-h-32">
+                    <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-32">
                       {JSON.stringify(runResult.output, null, 2)}
                     </pre>
                   )}
                   {runResult.logs && runResult.logs.length > 0 && (
                     <div className="mt-2">
                       <div className="font-medium text-gray-700 mb-1">Logs:</div>
-                      <pre className="bg-white p-2 rounded border border-gray-200 text-xs overflow-auto max-h-20">
+                      <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-20">
                         {runResult.logs.join('\n')}
                       </pre>
                     </div>
@@ -231,8 +231,8 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
                 </div>
               ) : (
                 <div className="text-sm">
-                  <div className="font-medium text-red-700 mb-2">❌ Error</div>
-                  <div className="text-red-600">{runResult.error}</div>
+                  <div className="font-medium text-gray-700 mb-2">❌ Error</div>
+                  <div className="text-gray-600">{runResult.error}</div>
                 </div>
               )}
             </div>
@@ -243,12 +243,12 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       <Handle
         type="target"
         position={Position.Left}
-        className="w-3 h-3 bg-gray-400 border-2 border-white"
+        className="w-3 h-3 bg-gray-500 border-2 border-white"
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3 h-3 bg-gray-400 border-2 border-white"
+        className="w-3 h-3 bg-gray-500 border-2 border-white"
       />
     </div>
   );
