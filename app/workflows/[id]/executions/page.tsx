@@ -54,6 +54,7 @@ export default function WorkflowExecutionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'completed' | 'failed' | 'running'>('all');
+  const [isCleanupLoading, setIsCleanupLoading] = useState(false);
 
   useEffect(() => {
     loadWorkflowAndExecutions();
@@ -86,6 +87,31 @@ export default function WorkflowExecutionsPage() {
     }
   };
 
+  const handleCleanup = async () => {
+    try {
+      setIsCleanupLoading(true);
+      const response = await fetch('/api/workflows/cleanup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Cleanup failed');
+      }
+
+      // Reload executions to see the updated statuses
+      await loadWorkflowAndExecutions();
+      alert('Cleanup completed successfully! Orphaned running steps have been marked as failed.');
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      alert('Cleanup failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsCleanupLoading(false);
+    }
+  };
+
   const filteredExecutions = executions.filter(execution => {
     if (filter === 'all') return true;
     return execution.status === filter;
@@ -107,6 +133,28 @@ export default function WorkflowExecutionsPage() {
       case 'action_execution': return 'text-blue-600 bg-blue-100';
       case 'data_processing': return 'text-green-600 bg-green-100';
       default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getStepStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'text-green-600 bg-green-100';
+      case 'failed': return 'text-red-600 bg-red-100';
+      case 'running': return 'text-blue-600 bg-blue-100';
+      case 'skipped': return 'text-yellow-600 bg-yellow-100';
+      case 'pending': return 'text-gray-600 bg-gray-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getStepStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return '✅';
+      case 'failed': return '❌';
+      case 'running': return '🔄';
+      case 'skipped': return '⏭️';
+      case 'pending': return '⏳';
+      default: return '❓';
     }
   };
 
@@ -270,182 +318,230 @@ export default function WorkflowExecutionsPage() {
           </div>
         </div>
 
-        {/* Filter Controls */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Execution History</h2>
-              <div className="flex space-x-2">
-                {(['all', 'completed', 'failed', 'running'] as const).map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setFilter(status)}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      filter === status
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Filters */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                filter === 'all'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilter('completed')}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                filter === 'completed'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Completed
+            </button>
+            <button
+              onClick={() => setFilter('failed')}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                filter === 'failed'
+                  ? 'bg-red-100 text-red-700'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Failed
+            </button>
+            <button
+              onClick={() => setFilter('running')}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                filter === 'running'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Running
+            </button>
           </div>
+          
+          <button
+            onClick={handleCleanup}
+            disabled={isCleanupLoading}
+            className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCleanupLoading ? 'Cleaning...' : '🧹 Cleanup Running Steps'}
+          </button>
+        </div>
 
-          {/* Executions List */}
-          <div className="divide-y divide-gray-200">
-            {filteredExecutions.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <div className="text-gray-400 text-6xl mb-4">📊</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No executions found</h3>
-                <p className="text-gray-600">
-                  {filter === 'all' 
-                    ? 'This workflow hasn\'t been executed yet.'
-                    : `No ${filter} executions found.`
-                  }
-                </p>
-              </div>
-            ) : (
-              filteredExecutions.map((execution) => (
-                <div
-                  key={execution.id}
-                  className={`px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                    selectedExecution?.id === execution.id ? 'bg-blue-50 border-l-4 border-blue-600' : ''
-                  }`}
-                  onClick={() => handleExecutionSelect(execution)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(execution.status)}`}>
-                        {execution.status}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          Execution {execution.id.slice(-8)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Started {formatDateTime(execution.startedAt)}
-                        </p>
-                      </div>
+        {/* Executions List */}
+        <div className="divide-y divide-gray-200">
+          {filteredExecutions.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <div className="text-gray-400 text-6xl mb-4">📊</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No executions found</h3>
+              <p className="text-gray-600">
+                {filter === 'all' 
+                  ? 'This workflow hasn\'t been executed yet.'
+                  : `No ${filter} executions found.`
+                }
+              </p>
+            </div>
+          ) : (
+            filteredExecutions.map((execution) => (
+              <div
+                key={execution.id}
+                className={`px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                  selectedExecution?.id === execution.id ? 'bg-blue-50 border-l-4 border-blue-600' : ''
+                }`}
+                onClick={() => handleExecutionSelect(execution)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(execution.status)}`}>
+                      {execution.status}
                     </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>Duration: {formatDuration(execution.totalDurationMs)}</span>
-                      <span>Steps: {execution.steps.length}</span>
-                      {execution.completedAt && (
-                        <span>Completed: {formatDateTime(execution.completedAt)}</span>
-                      )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Execution {execution.id.slice(-8)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Started {formatDateTime(execution.startedAt)}
+                      </p>
                     </div>
                   </div>
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <span>Duration: {formatDuration(execution.totalDurationMs)}</span>
+                    <span>Steps: {execution.steps.length}</span>
+                    {execution.completedAt && (
+                      <span>Completed: {formatDateTime(execution.completedAt)}</span>
+                    )}
+                  </div>
                 </div>
-              ))
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Execution Details */}
+      {selectedExecution && (
+        <div ref={executionDetailsRef} className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Execution Details - {selectedExecution.id.slice(-8)}
+            </h3>
+          </div>
+          <div className="p-6">
+            {/* Execution Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div>
+                <h4 className="text-sm font-medium text-gray-600 mb-2">Status</h4>
+                <div className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedExecution.status)}`}>
+                  {selectedExecution.status}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-600 mb-2">Duration</h4>
+                <p className="text-lg font-semibold text-gray-900">
+                  {formatDuration(selectedExecution.totalDurationMs)}
+                </p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-600 mb-2">Steps</h4>
+                <p className="text-lg font-semibold text-gray-900">
+                  {selectedExecution.steps.length} steps
+                </p>
+              </div>
+            </div>
+
+            {/* Steps Timeline */}
+            <div className="mb-8">
+              <h4 className="text-lg font-medium text-gray-900 mb-4">Execution Steps</h4>
+              
+              {/* Status Legend */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">
+                  <strong>Step Status Guide:</strong>
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="px-2 py-1 rounded-full text-green-600 bg-green-100">✅ completed</span>
+                  <span className="px-2 py-1 rounded-full text-red-600 bg-red-100">❌ failed</span>
+                  <span className="px-2 py-1 rounded-full text-blue-600 bg-blue-100">🔄 running</span>
+                  <span className="px-2 py-1 rounded-full text-yellow-600 bg-yellow-100">⏭️ skipped</span>
+                  <span className="px-2 py-1 rounded-full text-gray-600 bg-gray-100">⏳ pending</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  <strong>Note:</strong> Steps showing as "running" may indicate the workflow was interrupted or encountered an error. 
+                  Check the execution status and error details above.
+                </p>
+              </div>
+              <div className="space-y-4">
+                {selectedExecution.steps
+                  .sort((a, b) => a.stepOrder - b.stepOrder)
+                  .map((step) => (
+                    <div key={step.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <div className={`px-2 py-1 text-xs font-medium rounded-full ${getStepTypeColor(step.stepType)}`}>
+                            {step.stepType.replace('_', ' ')}
+                          </div>
+                          <h5 className="text-sm font-medium text-gray-900">{step.stepName}</h5>
+                        </div>
+                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                          <span>Duration: {formatDuration(step.durationMs)}</span>
+                          <div className={`px-2 py-1 rounded-full ${getStepStatusColor(step.status)}`}>
+                            {getStepStatusIcon(step.status)} {step.status}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {step.errorMessage && (
+                        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                          <p className="text-sm text-red-800">
+                            <strong>Error:</strong> {step.errorMessage}
+                          </p>
+                        </div>
+                      )}
+
+                      {(step.inputData || step.outputData) && (
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {step.inputData && (
+                            <div>
+                              <h6 className="text-xs font-medium text-gray-600 mb-1">Input Data</h6>
+                              <pre className="text-xs bg-gray-50 p-2 rounded border overflow-auto max-h-32">
+                                {JSON.stringify(step.inputData, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {step.outputData && (
+                            <div>
+                              <h6 className="text-xs font-medium text-gray-600 mb-1">Output Data</h6>
+                              <pre className="text-xs bg-gray-50 p-2 rounded border overflow-auto max-h-32">
+                                {JSON.stringify(step.outputData, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Error Details */}
+            {selectedExecution.errorMessage && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <h4 className="text-sm font-medium text-red-800 mb-2">Execution Error</h4>
+                <p className="text-sm text-red-700">{selectedExecution.errorMessage}</p>
+                {selectedExecution.errorDetails && (
+                  <pre className="mt-2 text-xs bg-red-100 p-2 rounded border overflow-auto max-h-32">
+                    {JSON.stringify(selectedExecution.errorDetails, null, 2)}
+                  </pre>
+                )}
+              </div>
             )}
           </div>
         </div>
-
-        {/* Execution Details */}
-        {selectedExecution && (
-          <div ref={executionDetailsRef} className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Execution Details - {selectedExecution.id.slice(-8)}
-              </h3>
-            </div>
-            <div className="p-6">
-              {/* Execution Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600 mb-2">Status</h4>
-                  <div className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedExecution.status)}`}>
-                    {selectedExecution.status}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600 mb-2">Duration</h4>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {formatDuration(selectedExecution.totalDurationMs)}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600 mb-2">Steps</h4>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {selectedExecution.steps.length} steps
-                  </p>
-                </div>
-              </div>
-
-              {/* Steps Timeline */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-600 mb-4">Execution Steps</h4>
-                <div className="space-y-4">
-                  {selectedExecution.steps
-                    .sort((a, b) => a.stepOrder - b.stepOrder)
-                    .map((step) => (
-                      <div key={step.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-3">
-                            <div className={`px-2 py-1 text-xs font-medium rounded-full ${getStepTypeColor(step.stepType)}`}>
-                              {step.stepType.replace('_', ' ')}
-                            </div>
-                            <h5 className="text-sm font-medium text-gray-900">{step.stepName}</h5>
-                          </div>
-                          <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>Duration: {formatDuration(step.durationMs)}</span>
-                            <div className={`px-2 py-1 rounded-full ${getStatusColor(step.status)}`}>
-                              {step.status}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {step.errorMessage && (
-                          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                            <p className="text-sm text-red-800">
-                              <strong>Error:</strong> {step.errorMessage}
-                            </p>
-                          </div>
-                        )}
-
-                        {(step.inputData || step.outputData) && (
-                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {step.inputData && (
-                              <div>
-                                <h6 className="text-xs font-medium text-gray-600 mb-1">Input Data</h6>
-                                <pre className="text-xs bg-gray-50 p-2 rounded border overflow-auto max-h-32">
-                                  {JSON.stringify(step.inputData, null, 2)}
-                                </pre>
-                              </div>
-                            )}
-                            {step.outputData && (
-                              <div>
-                                <h6 className="text-xs font-medium text-gray-600 mb-1">Output Data</h6>
-                                <pre className="text-xs bg-gray-50 p-2 rounded border overflow-auto max-h-32">
-                                  {JSON.stringify(step.outputData, null, 2)}
-                                </pre>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Error Details */}
-              {selectedExecution.errorMessage && (
-                <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <h4 className="text-sm font-medium text-red-800 mb-2">Execution Error</h4>
-                  <p className="text-sm text-red-700">{selectedExecution.errorMessage}</p>
-                  {selectedExecution.errorDetails && (
-                    <pre className="mt-2 text-xs bg-red-100 p-2 rounded border overflow-auto max-h-32">
-                      {JSON.stringify(selectedExecution.errorDetails, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 } 

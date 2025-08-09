@@ -128,7 +128,11 @@ class WorkflowService {
         await this.updateStep(executionId, 2, 'failed', { 
           errorMessage: 'Trigger conditions not met' 
         });
-        await this.updateExecution(executionId, 'completed', { 
+        
+        // Clean up any remaining running steps
+        await this.cleanupRunningSteps(executionId, 2);
+        
+        await this.updateExecution(executionId, 'failed', { 
           success: false, 
           error: 'Trigger conditions not met',
           totalDurationMs: Date.now() - startTime
@@ -149,6 +153,7 @@ class WorkflowService {
       // Step 3: Execute actions sequentially
       const actionResults = [];
       const workflowContext: any = { ...inputData }; // Start with input data
+      const loggedSteps: number[] = []; // Track which steps were logged
       
       for (let i = 0; i < workflow.actions.length; i++) {
         const action = workflow.actions[i] as ActionConfig;
@@ -160,6 +165,8 @@ class WorkflowService {
           stepName: `Execute Action ${i + 1}: ${action.type}`,
           inputData: { action, inputData: inputData, context: workflowContext }
         });
+        
+        loggedSteps.push(stepOrder);
         
         try {
           const result = await this.executeAction(action, inputData, workflowId, workflowContext);
@@ -189,6 +196,9 @@ class WorkflowService {
             errorMessage 
           });
           
+          // Clean up any remaining running steps
+          await this.cleanupRunningSteps(executionId, stepOrder);
+          
           // For now, stop execution on first failure
           // In the future, we could add retry logic or continue-on-error options
           break;
@@ -206,12 +216,22 @@ class WorkflowService {
 
       // Determine the final status based on overall success
       const finalStatus = overallSuccess ? 'completed' : 'failed';
+      
+      // If successful, mark any remaining logged steps as skipped
+      if (overallSuccess) {
+        await this.markRemainingStepsAsSkipped(executionId, loggedSteps);
+      }
+      
       await this.updateExecution(executionId, finalStatus, executionResult);
       return executionResult;
 
     } catch (error) {
       const totalDurationMs = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Clean up any remaining running steps
+      await this.cleanupRunningSteps(executionId, 0);
+      
       await this.updateExecution(executionId, 'failed', { 
         success: false, 
         error: errorMessage,
@@ -577,6 +597,82 @@ class WorkflowService {
       where: { executionId, stepOrder },
       data: updateData
     });
+  }
+
+  /**
+   * Clean up any remaining running steps for a given execution.
+   * This ensures all steps are marked as completed or failed.
+   */
+  private async cleanupRunningSteps(executionId: string, lastLoggedStepOrder: number) {
+    try {
+      const stepsToUpdate = await prisma.workflowStep.findMany({
+        where: { executionId, status: 'running' }
+      });
+
+      for (const step of stepsToUpdate) {
+        if (step.stepOrder > lastLoggedStepOrder) {
+          await this.updateStep(executionId, step.stepOrder, 'failed', { 
+            errorMessage: 'Workflow execution interrupted' 
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning up running steps:', error);
+      // Don't throw here as this is cleanup code
+    }
+  }
+
+  /**
+   * Clean up orphaned running steps for all executions.
+   * This handles cases where executions were interrupted and steps were left in running status.
+   */
+  async cleanupOrphanedRunningSteps() {
+    try {
+      const orphanedSteps = await prisma.workflowStep.findMany({
+        where: { 
+          status: 'running',
+          execution: {
+            status: { in: ['completed', 'failed'] }
+          }
+        },
+        include: {
+          execution: true
+        }
+      });
+
+      for (const step of orphanedSteps) {
+        await this.updateStep(step.executionId, step.stepOrder, 'failed', {
+          errorMessage: 'Execution completed but step was left in running status'
+        });
+      }
+
+      console.log(`Cleaned up ${orphanedSteps.length} orphaned running steps`);
+    } catch (error) {
+      console.error('Error cleaning up orphaned running steps:', error);
+    }
+  }
+
+  /**
+   * Mark any remaining logged steps as skipped.
+   */
+  private async markRemainingStepsAsSkipped(executionId: string, loggedStepOrders: number[]) {
+    try {
+      const maxStepOrder = await prisma.workflowStep.findFirst({
+        where: { executionId },
+        orderBy: { stepOrder: 'desc' }
+      });
+      const maxOrder = maxStepOrder ? maxStepOrder.stepOrder : 0;
+
+      for (let i = 1; i <= maxOrder; i++) {
+        if (!loggedStepOrders.includes(i)) {
+          await this.updateStep(executionId, i, 'skipped', {
+            errorMessage: 'Workflow completed successfully, marking remaining steps as skipped'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error marking remaining steps as skipped:', error);
+    }
   }
 
   /**
