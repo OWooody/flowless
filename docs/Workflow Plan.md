@@ -367,7 +367,7 @@ Create a system that allows workflow actions to be populated with data from prev
 - **Flow**: `event.userName` → `action.bodyVariable1`
 
 #### **3. Contextual Messaging:**
-- **Trigger**: Purchase event with order details
+- **Trigger**: Order created event with order details
 - **Action**: Order confirmation with order number and amount
 - **Flow**: `event.orderNumber` → `action.bodyVariable1`, `event.amount` → `action.bodyVariable2`
 

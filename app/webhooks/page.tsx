@@ -153,7 +153,7 @@ export default function WebhooksPage() {
               value={newWebhook.eventName}
               onChange={(e) => setNewWebhook({ ...newWebhook, eventName: e.target.value })}
               className="w-full p-2 border rounded"
-              placeholder="Enter event name (e.g., user_signup, purchase_completed)"
+              placeholder="Enter event name (e.g., user_signup, order_created, ticket_assigned)"
             />
             <p className="mt-1 text-sm text-gray-500">
               Enter an event name to track specific events, or leave empty to track all events

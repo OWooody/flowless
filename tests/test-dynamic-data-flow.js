@@ -137,7 +137,7 @@ console.log('   - Trigger: User signs up with name');
 console.log('   - Action: Welcome message uses event.userName');
 console.log('');
 console.log('3. **Order Confirmations**:');
-console.log('   - Trigger: Purchase event with order details');
+console.log('   - Trigger: Order created event with order details');
 console.log('   - Action: Confirmation uses event.orderNumber');
 
 console.log('\n🔧 Technical Implementation:');

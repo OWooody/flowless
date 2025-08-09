@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
             user: { age: 25, country: 'US', isVIP: true, email: 'user@example.com' },
             order: { total: 150, status: 'pending', items: ['item1', 'item2'] },
             timestamp: new Date().toISOString(),
-            category: 'purchase',
+            category: 'order_created',
             value: 150
           },
           workflow: {

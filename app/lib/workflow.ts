@@ -420,21 +420,9 @@ class WorkflowService {
   }
 
   private getConditionsFromTrigger(trigger: string) {
-    switch (trigger) {
-      case 'first_visit':
-        return [{ field: 'user.behavior.visitCount', operator: 'equals', value: 1, logic: 'AND' }];
-      case 'high_spender':
-        return [{ field: 'user.behavior.totalSpent', operator: 'greater_than', value: 1000, logic: 'AND' }];
-      case 'cart_abandoner':
-        return [
-          { field: 'user.behavior.cartAbandoned', operator: 'equals', value: true, logic: 'AND' },
-          { field: 'user.behavior.cartValue', operator: 'greater_than', value: 50, logic: 'AND' }
-        ];
-      case 'inactive_user':
-        return [{ field: 'user.behavior.lastVisit', operator: 'less_than', value: 30, logic: 'AND' }];
-      default:
-        return [];
-    }
+    // Generic system - no hardcoded marketing rules
+    // Users define their own conditions through the workflow builder
+    return [];
   }
 
   /**

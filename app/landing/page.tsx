@@ -215,10 +215,10 @@ export default function LandingPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-4">Campaign Analytics (Soon)</h3>
+              <h3 className="text-xl font-semibold text-white mb-4">Business Analytics (Soon)</h3>
               <p className="text-gray-300 leading-relaxed">
-                Monitor campaign performance with detailed analytics. Track conversions, 
-                measure ROI, and optimize your marketing efforts.
+                Monitor business performance with detailed analytics. Track key metrics, 
+                measure efficiency, and optimize your operations.
               </p>
             </div>
 

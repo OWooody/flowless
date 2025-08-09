@@ -88,7 +88,7 @@ You can also use static values:
 
 ### Example 1: VIP Customer Check
 ```
-Trigger: "purchase" event
+Trigger: "order_created" event
 ├─ Condition: {event.value} > 500
 │  ├─ True: Send VIP confirmation email
 │  └─ False: Send standard confirmation email
@@ -96,7 +96,7 @@ Trigger: "purchase" event
 
 ### Example 2: Promo Code Validation
 ```
-Trigger: "purchase" event
+Trigger: "order_created" event
 ├─ Get Promo Code
 ├─ Condition: {workflow.promoCode} = SUMMER20
 │  ├─ True: Apply 20% discount
@@ -111,7 +111,7 @@ Trigger: "user_signup" event
 │  └─ False: Send standard welcome
 ```
 
-### Example 4: Age-Based Marketing
+### Example 4: Age-Based Access Control
 ```
 Trigger: "page_view" event
 ├─ Condition: {event.age} > 18
@@ -121,15 +121,15 @@ Trigger: "page_view" event
 
 ### Example 5: Item Category Targeting
 ```
-Trigger: "purchase" event
+Trigger: "order_created" event
 ├─ Condition: {event.itemCategory} = Package
 │  ├─ True: Send package-specific confirmation
 │  └─ False: Send standard confirmation
 ```
 
-### Example 6: High-Value Purchase
+### Example 6: High-Value Order
 ```
-Trigger: "purchase" event
+Trigger: "order_created" event
 ├─ Condition: {event.value} > 1000
 │  ├─ True: Send premium support notification
 │  └─ False: Send standard support notification
