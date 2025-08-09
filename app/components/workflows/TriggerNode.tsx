@@ -112,16 +112,8 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
 
       const result = await response.json();
       
-      // Show success message
-      const successMessage = `Workflow executed successfully!
-
-Execution ID: ${result.result.executionId}
-Duration: ${result.result.totalDurationMs || 'N/A'}ms
-Actions executed: ${result.result.actionResults?.length || 0}
-
-Check the execution history for detailed results.`;
-      
-      alert(successMessage);
+      // Workflow executed successfully - no alert needed
+      console.log('Workflow executed successfully:', result);
       
     } catch (error) {
       console.error('Error running workflow:', error);
