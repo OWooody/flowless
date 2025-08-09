@@ -448,23 +448,6 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
                       <JSONTree data={runResult.output} expanded={jsonTreeExpanded} setExpanded={setJsonTreeExpanded} />
                     </div>
                   </div>
-                ) : runResult.success ? (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                    <div className="flex items-center space-x-2 text-yellow-800">
-                      <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <div>
-                        <div className="font-medium">No output returned</div>
-                        <div className="text-xs text-yellow-700 mt-1">
-                          {hasReturnStatement(codeValue) 
-                            ? "Your code executed successfully but didn't return a value. Check your return statement."
-                            : "Your code is missing a return statement. Add 'return' to output data for the next node."
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 ) : (
                   <div className="text-gray-500">No data to display</div>
                 )}
