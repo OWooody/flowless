@@ -72,21 +72,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Handle different action types
-      if (action.type === 'push_notification') {
-        if (!action.title || !action.body) {
-          return NextResponse.json(
-            { error: 'Push notification actions require title and body' },
-            { status: 400 }
-          );
-        }
-
-        if (!action.targetUsers) {
-          return NextResponse.json(
-            { error: 'Target users configuration is required' },
-            { status: 400 }
-          );
-        }
-      } else if (action.type === 'action' || action.type === 'typescript' || action.type === 'condition') {
+      if (action.type === 'action' || action.type === 'typescript' || action.type === 'condition') {
         // These are the new generic action types - no specific validation needed
         continue;
       }

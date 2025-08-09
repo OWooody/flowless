@@ -78,6 +78,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const [workflowDescription, setWorkflowDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [lastExecutionResult, setLastExecutionResult] = useState<any>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | null>(null);
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -254,6 +256,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       // Set all nodes and edges at once when loading is complete
       setNodes(workflowNodes);
       setEdges(workflowEdges);
+      setLastExecutionResult(null); // Clear any previous execution results
       
       console.log('Workflow loading completed');
     } catch (error) {
@@ -501,11 +504,72 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
 
 
+  const runWorkflow = async () => {
+    if (!editWorkflowId) {
+      alert('Please save the workflow first before running it.');
+      return;
+    }
+
+    setIsRunning(true);
+    setLastExecutionResult(null); // Clear previous execution result
+    
+    try {
+      // Create a test event for the workflow
+      const testEvent = {
+        name: 'manual_test_event',
+        category: 'engagement',
+        itemName: 'test_item',
+        itemCategory: 'test_category',
+        value: 100,
+        userId: 'test_user',
+        organizationId: 'test_org',
+        timestamp: new Date().toISOString(),
+      };
+
+      const response = await fetch(`/api/workflows/${editWorkflowId}/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ testEvent }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to run workflow');
+      }
+
+      const result = await response.json();
+      
+      // Store the execution result
+      setLastExecutionResult(result.result);
+      
+      // Show success message with execution details
+      const successMessage = `Workflow executed successfully!
+
+Execution ID: ${result.result.executionId}
+Duration: ${result.result.totalDurationMs || 'N/A'}ms
+Actions executed: ${result.result.actionResults?.length || 0}
+
+Check the execution history for detailed results.`;
+      
+      alert(successMessage);
+      
+    } catch (error) {
+      console.error('Error running workflow:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to run workflow';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   const clearCanvas = () => {
     if (confirm('Are you sure you want to clear the canvas? This will remove all nodes and connections.')) {
       setNodes([defaultTriggerNode]);
       setEdges([]);
       setSaveStatus('unsaved'); // Clear save status when canvas is cleared
+      setLastExecutionResult(null); // Clear execution result when canvas is cleared
     }
   };
 
@@ -545,6 +609,44 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
             </div>
           )}
 
+          {/* Floating Execution Status */}
+          {isRunning && (
+            <div className="absolute top-4 left-4 z-50 bg-white/90 backdrop-blur-sm border border-green-200 rounded-lg px-4 py-2 shadow-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-green-700 font-medium">Executing workflow...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Floating Execution Result */}
+          {lastExecutionResult && !isRunning && (
+            <div className="absolute top-20 left-4 z-50 bg-white/90 backdrop-blur-sm border border-green-200 rounded-lg px-4 py-3 shadow-lg max-w-sm">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-green-700">Execution Complete</span>
+                  <button
+                    onClick={() => setLastExecutionResult(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div>ID: {lastExecutionResult.executionId}</div>
+                  <div>Duration: {lastExecutionResult.totalDurationMs || 'N/A'}ms</div>
+                  <div>Actions: {lastExecutionResult.actionResults?.length || 0}</div>
+                </div>
+                <button
+                  onClick={() => router.push(`/workflows/${editWorkflowId}/executions`)}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white text-xs py-2 px-3 rounded transition-colors"
+                >
+                  View Execution History
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Floating Workflow Name Input with Back Button and Icon */}
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
             <div className="flex items-center space-x-3">
@@ -568,6 +670,12 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
                   onChange={(e) => setWorkflowName(e.target.value)}
                   className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-lg"
                 />
+                {/* Workflow Status Indicator */}
+                {editWorkflowId && (
+                  <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full shadow-sm">
+                    Ready to Run
+                  </div>
+                )}
               </div>
 
               {/* Node Type Buttons */}
@@ -620,6 +728,26 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
           {/* Floating Action Buttons */}
           <div className="absolute bottom-4 right-4 z-50">
             <div className="flex flex-col space-y-2">
+              {/* Run Workflow Button */}
+              <button
+                onClick={() => runWorkflow()}
+                disabled={isRunning || isLoading || !editWorkflowId}
+                className={`rounded-full p-3 shadow-lg transition-all duration-200 ${
+                  !editWorkflowId 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700 hover:shadow-xl'
+                } text-white disabled:opacity-50`}
+                title={!editWorkflowId ? "Save workflow first to run it" : "Run Workflow"}
+              >
+                {isRunning ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                  </svg>
+                )}
+              </button>
+              
               <button
                 onClick={() => saveWorkflow()}
                 disabled={isSaving || isLoading}

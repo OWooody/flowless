@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
                 branchType: branch.type,
                 condition: branch.condition,
                 result: null,
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 wouldExecute: false
               });
             }
@@ -186,12 +186,12 @@ export async function POST(req: NextRequest) {
             branchResults,
             testData: testContext,
             totalBranches: branches.length,
-            activeBranches: branches.filter(b => b.isActive).length
+            activeBranches: branches.filter((b: any) => b.isActive).length
           },
           logs: [
             `Condition node tested with ${branches.length} branches`,
             `Executed branch: ${executedBranch ? executedBranch.id : 'none'}`,
-            ...branchResults.map(b => 
+            ...branchResults.map((b: any) => 
               `${b.branchType} branch ${b.branchId}: ${b.result === null ? 'no condition' : b.result}`
             )
           ]
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         return NextResponse.json({
           success: false,
-          error: `Condition evaluation failed: ${error.message}`,
+          error: `Condition evaluation failed: ${error instanceof Error ? error.message : String(error)}`,
           branches: nodeData.branches
         });
       }
