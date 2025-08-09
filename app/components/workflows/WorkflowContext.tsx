@@ -27,10 +27,21 @@ export const WorkflowProvider: React.FC<WorkflowProviderProps> = ({ children }) 
   const [previousNodeOutputs, setPreviousNodeOutputs] = useState<Record<string, any>>({});
 
   const addNodeOutput = (nodeId: string, output: any) => {
-    setPreviousNodeOutputs(prev => ({
-      ...prev,
-      [nodeId]: output
-    }));
+    setPreviousNodeOutputs(prev => {
+      // If output is an object, spread its properties directly
+      if (typeof output === 'object' && output !== null && !Array.isArray(output)) {
+        return {
+          ...prev,
+          ...output
+        };
+      } else {
+        // If output is not an object, store it with the node ID as key
+        return {
+          ...prev,
+          [nodeId]: output
+        };
+      }
+    });
   };
 
   const clearNodeOutputs = () => {
