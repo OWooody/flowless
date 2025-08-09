@@ -174,7 +174,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
                 onChange={handleCodeChange}
                 onBlur={handleCodeBlur}
                 placeholder="// Your code here..."
-                className="w-full bg-gray-900 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0 pr-12"
+                className="w-full bg-gray-900 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0"
                 style={{
                   fontFamily: 'monospace',
                   lineHeight: '1.5',
