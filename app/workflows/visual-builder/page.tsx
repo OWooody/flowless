@@ -87,12 +87,16 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const nodeTypes = useMemo(() => ({
     trigger: (props: any) => <TriggerNode {...props} 
       onWorkflowExecuted={(result) => {
-        // Just set running to false - no need to store execution result
+        // Set workflow as completed and stop running
         setIsRunning(false);
+        setWorkflowCompleted(true);
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => setWorkflowCompleted(false), 3000);
       }}
       onWorkflowStarted={() => {
         // Set running state when workflow starts
         setIsRunning(true);
+        setWorkflowCompleted(false);
       }}
     />,
     condition: ConditionNode,
@@ -534,6 +538,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       setEdges([]);
       setSaveStatus('unsaved'); // Clear save status when canvas is cleared
       setLastExecutionResult(null); // Clear execution result when canvas is cleared
+      setWorkflowCompleted(false); // Clear workflow completed state
     }
   };
 
@@ -584,7 +589,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
           )}
 
           {/* Success Toast Message */}
-          {!isRunning && (
+          {workflowCompleted && (
             <div className="absolute top-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-top-2 duration-300">
               <div className="flex items-center space-x-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
