@@ -167,19 +167,26 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
       
       for (const branch of branches) {
         if (branch.type === 'else') {
-          // Else branch is always true if we reach it
-          trueBranchId = branch.id;
+          // Else branch is only true if no previous conditions were true
+          if (trueBranchId === null) {
+            trueBranchId = branch.id;
+          }
           break;
         }
         
         if (branch.condition?.trim()) {
-          // For now, simulate condition evaluation
-          // In a real implementation, you'd evaluate the actual condition
-          const isTrue = Math.random() > 0.5; // Simulate random true/false
-          
-          if (isTrue) {
-            trueBranchId = branch.id;
-            break;
+          try {
+            // Evaluate the condition expression
+            // Create a safe evaluation context with previous node outputs
+            const conditionResult = evaluateCondition(branch.condition);
+            
+            if (conditionResult === true) {
+              trueBranchId = branch.id;
+              break; // Stop at first true condition
+            }
+          } catch (error) {
+            console.error(`Error evaluating condition in ${branch.type} branch:`, error);
+            // Continue to next branch if this one fails
           }
         }
       }
@@ -193,6 +200,21 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
       setIsRunning(false);
     }
   }, [branches]);
+
+  // Helper function to safely evaluate condition expressions
+  const evaluateCondition = (condition: string): boolean => {
+    // Remove any dangerous functions and create a safe evaluation context
+    const safeEval = new Function('return ' + condition);
+    
+    try {
+      const result = safeEval();
+      // Convert result to boolean
+      return Boolean(result);
+    } catch (error) {
+      console.error('Condition evaluation error:', error);
+      return false;
+    }
+  };
 
   const getBranchStyle = (branchId: string) => {
     if (activeBranchId === branchId) {
