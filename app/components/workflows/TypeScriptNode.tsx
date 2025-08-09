@@ -98,6 +98,34 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
     }
   }, [codeValue]);
 
+  // Handle scroll prevention when textarea is focused
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Prevent scroll from bubbling up to React Flow canvas
+      e.stopPropagation();
+    };
+
+    const handleFocus = () => {
+      textarea.addEventListener('wheel', handleWheel, { passive: false });
+    };
+
+    const handleBlur = () => {
+      textarea.removeEventListener('wheel', handleWheel);
+    };
+
+    textarea.addEventListener('focus', handleFocus);
+    textarea.addEventListener('blur', handleBlur);
+
+    return () => {
+      textarea.removeEventListener('focus', handleFocus);
+      textarea.removeEventListener('blur', handleBlur);
+      textarea.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <div className="relative">
       <div 
@@ -164,12 +192,13 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
               onChange={handleCodeChange}
               onBlur={handleCodeBlur}
               placeholder="// Your code here..."
-              className="w-full bg-gray-900 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0"
+              className="w-full bg-gray-900 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0 overflow-y-auto"
               style={{
                 fontFamily: 'monospace',
                 lineHeight: '1.5',
                 minHeight: '120px',
-                maxHeight: '300px'
+                maxHeight: '300px',
+                overflowY: 'auto'
               }}
             />
           </div>
