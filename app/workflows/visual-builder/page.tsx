@@ -611,9 +611,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
                 <button
                   onClick={() => addNodeFromPalette('condition', { 
                     label: 'Condition',
-                    conditionType: 'equals',
-                    leftOperand: 'Value',
-                    rightOperand: 'Compare to'
+                    condition: '// Write your condition here\n// Return true or false\nif (event.user.age >= 18) return true;\nreturn false;'
                   })}
                   className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-white transition-all duration-200 flex items-center space-x-2 shadow-sm"
                   title="Add Condition Node"

@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useReactFlow, Node } from 'reactflow';
 import { useWorkflowContext } from './WorkflowContext';
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { monokai } from '@uiw/codemirror-theme-monokai';
 
 interface PropertyPanelProps {
   selectedNode: Node | null;
@@ -357,95 +360,327 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
     );
   };
 
-  const getConditionSymbol = (conditionType: string) => {
-    switch (conditionType) {
-      case 'equals': return '=';
-      case 'not_equals': return '≠';
-      case 'greater_than': return '>';
-      case 'less_than': return '<';
-      case 'contains': return '⊃';
-      case 'not_contains': return '⊅';
-      default: return '?';
-    }
-  };
-
-  const renderConditionProperties = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Condition Type
-        </label>
-        <select
-          value={nodeData.conditionType || 'equals'}
-          onChange={(e) => updateNodeData('conditionType', e.target.value)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="equals">Equals (=)</option>
-          <option value="not_equals">Not Equals (≠)</option>
-          <option value="greater_than">Greater Than (&gt;)</option>
-          <option value="less_than">Less Than (&lt;)</option>
-          <option value="contains">Contains (⊃)</option>
-          <option value="not_contains">Not Contains (⊅)</option>
-        </select>
-        <p className="mt-1 text-xs text-gray-500">
-          Choose how to compare the values
-        </p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Left Operand (Variable or Value)
-        </label>
-        <input
-          type="text"
-          value={nodeData.leftOperand || ''}
-          onChange={(e) => updateNodeData('leftOperand', e.target.value)}
-          placeholder="e.g., {event.userId}, 100"
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Use variables like {'{event.userId}'} or enter a value
-        </p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Right Operand (Variable or Value)
-        </label>
-        <input
-          type="text"
-          value={nodeData.rightOperand || ''}
-          onChange={(e) => updateNodeData('rightOperand', e.target.value)}
-          placeholder="e.g., {event.userId}, 100"
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Use variables like {'{event.userId}'} or enter a value
-        </p>
-      </div>
 
 
+  const renderConditionProperties = () => {
+    const branches = nodeData.branches || [
+      { id: 'if-1', type: 'if', condition: 'return true;', label: 'If', isActive: true },
+      { id: 'else-1', type: 'else', condition: undefined, label: 'Else', isActive: false }
+    ];
 
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-        <h4 className="text-sm font-medium text-blue-900 mb-2">Condition Preview</h4>
-        <div className="text-xs text-blue-700">
-          <div className="font-mono">
-            {nodeData.leftOperand || 'Left operand'} {getConditionSymbol(nodeData.conditionType)} {nodeData.rightOperand || 'Right operand'}
+    const conditionTemplates = [
+      {
+        name: 'Age Check',
+        description: 'Check if user meets age requirement',
+        code: `// Check if user is old enough
+if (event.user && event.user.age >= 18) return true;
+return false;`
+      },
+      {
+        name: 'VIP Customer',
+        description: 'Check if customer has VIP status',
+        code: `// Check VIP status or high order value
+if (event.user && event.user.isVIP) return true;
+if (event.order && event.order.total > 1000) return true;
+return false;`
+      },
+      {
+        name: 'Country Filter',
+        description: 'Check if user is in allowed countries',
+        code: `// Check if user is in allowed countries
+const allowedCountries = ['US', 'CA', 'UK'];
+if (event.user && event.user.country && allowedCountries.includes(event.user.country)) return true;
+return false;`
+      },
+      {
+        name: 'Order Status',
+        description: 'Check order status for processing',
+        code: `// Check if order is ready for processing
+const validStatuses = ['pending', 'confirmed', 'processing'];
+if (event.order && event.order.status && validStatuses.includes(event.order.status)) return true;
+return false;`
+      },
+      {
+        name: 'Time-Based',
+        description: 'Check if current time meets criteria',
+        code: `// Check if it's business hours (9 AM to 5 PM)
+const hour = new Date().getHours();
+if (hour >= 9 && hour < 17) return true;
+return false;`
+      }
+    ];
+
+    const addBranch = () => {
+      const newBranch = {
+        id: `elseIf-${Date.now()}`,
+        type: 'elseIf' as const,
+        condition: 'return false;',
+        label: 'Else If',
+        isActive: false
+      };
+      const newBranches = [...branches, newBranch];
+      updateNodeData('branches', newBranches);
+    };
+
+    const removeBranch = (branchId: string) => {
+      if (branches.length <= 2) return; // Keep at least if and else
+      const newBranches = branches.filter((b: any) => b.id !== branchId);
+      updateNodeData('branches', newBranches);
+    };
+
+    const toggleBranchActive = (branchId: string) => {
+      const newBranches = branches.map((b: any) =>
+        b.id === branchId ? { ...b, isActive: !b.isActive } : b
+      );
+      updateNodeData('branches', newBranches);
+    };
+
+    const moveBranch = (branchId: string, direction: 'up' | 'down') => {
+      const currentIndex = branches.findIndex((b: any) => b.id === branchId);
+      if (currentIndex === -1) return;
+      
+      let newIndex;
+      if (direction === 'up' && currentIndex > 0) {
+        newIndex = currentIndex - 1;
+      } else if (direction === 'down' && currentIndex < branches.length - 1) {
+        newIndex = currentIndex + 1;
+      } else {
+        return;
+      }
+      
+      const newBranches = [...branches];
+      [newBranches[currentIndex], newBranches[newIndex]] = [newBranches[newIndex], newBranches[currentIndex]];
+      updateNodeData('branches', newBranches);
+    };
+
+    const applyTemplate = (template: any) => {
+      const newBranches = branches.map((b: any) => 
+        b.type === 'if' ? { ...b, condition: template.code } : b
+      );
+      updateNodeData('branches', newBranches);
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* Condition Templates */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Quick Templates
+          </label>
+          <p className="text-xs text-gray-500 mb-3">
+            Start with a pre-built condition template
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {conditionTemplates.map((template, index) => (
+              <button
+                key={index}
+                onClick={() => applyTemplate(template)}
+                className="text-left p-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
+              >
+                <div className="font-medium text-sm text-gray-900">{template.name}</div>
+                <div className="text-xs text-gray-600">{template.description}</div>
+              </button>
+            ))}
           </div>
         </div>
-      </div>
 
-      <div>
-        <button
-          onClick={testNode}
-          disabled={isTesting}
-          className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
-        >
-          {isTesting ? 'Testing...' : 'Test Node'}
-        </button>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Conditional Branches
+          </label>
+          <p className="text-xs text-gray-500 mb-3">
+            Branches are evaluated in order. First branch that returns true will execute.
+          </p>
+          
+          {/* Branches List */}
+          <div className="space-y-3">
+            {branches.map((branch: any, index: number) => (
+              <div key={branch.id} className="border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium">
+                      {branch.type === 'elseIf' ? 'Else If' : branch.type === 'if' ? 'If' : 'Else'}
+                    </span>
+                    <span className={`px-2 py-1 text-xs rounded ${
+                      branch.isActive 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {branch.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      #{index + 1}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {/* Move Up/Down Buttons */}
+                    {branches.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => moveBranch(branch.id, 'up')}
+                          disabled={index === 0}
+                          className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          ⬆️
+                        </button>
+                        <button
+                          onClick={() => moveBranch(branch.id, 'down')}
+                          disabled={index === branches.length - 1}
+                          className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          ⬇️
+                        </button>
+                      </>
+                    )}
+                    
+                    <button
+                      onClick={() => toggleBranchActive(branch.id)}
+                      className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                        branch.isActive 
+                          ? 'bg-green-400 border-green-300' 
+                          : 'bg-gray-300 border-gray-400'
+                      }`}
+                      title={branch.isActive ? 'Active' : 'Inactive'}
+                    />
+                    {branch.type !== 'if' && branches.length > 2 && (
+                      <button
+                        onClick={() => removeBranch(branch.id)}
+                        className="text-red-500 hover:text-red-700 transition-colors"
+                        title="Remove branch"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {branch.type !== 'else' ? (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Condition Code:
+                    </label>
+                    <div className="bg-gray-900 rounded border border-gray-300">
+                      <CodeMirror
+                        value={branch.condition || 'return true;'}
+                        onChange={(value: string) => {
+                          const newBranches = branches.map((b: any) =>
+                            b.id === branch.id ? { ...b, condition: value } : b
+                          );
+                          updateNodeData('branches', newBranches);
+                        }}
+                        extensions={[javascript()]}
+                        theme={monokai}
+                        basicSetup={{
+                          lineNumbers: false,
+                          foldGutter: false,
+                          highlightActiveLine: false,
+                          dropCursor: false,
+                          allowMultipleSelections: false,
+                          indentOnInput: false,
+                          syntaxHighlighting: true,
+                          bracketMatching: true,
+                          closeBrackets: true,
+                          autocompletion: true,
+                          rectangularSelection: false,
+                          crosshairCursor: false,
+                          highlightActiveLineGutter: false,
+                          searchKeymap: false,
+                          foldKeymap: false,
+                          completionKeymap: false,
+                          lintKeymap: false,
+                          tabSize: 2,
+                        }}
+                        height="100px"
+                        className="text-sm"
+                      />
+                    </div>
+                    
+                    {/* Quick Actions */}
+                    <div className="mt-2 flex space-x-2">
+                      <button
+                        onClick={() => {
+                          const newBranches = branches.map((b: any) =>
+                            b.id === branch.id ? { ...b, condition: 'return true;' } : b
+                          );
+                          updateNodeData('branches', newBranches);
+                        }}
+                        className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                      >
+                        Always True
+                      </button>
+                      <button
+                        onClick={() => {
+                          const newBranches = branches.map((b: any) =>
+                            b.id === branch.id ? { ...b, condition: 'return false;' } : b
+                          );
+                          updateNodeData('branches', newBranches);
+                        }}
+                        className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                      >
+                        Always False
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 bg-gray-50 p-2 rounded">
+                    Default path (no condition required)
+                  </div>
+                )}
+                
+                <div className="mt-2 text-xs text-gray-500">
+                  Output handle: <code className="bg-gray-100 px-1 rounded">{branch.id}-output</code>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Add Branch Button */}
+          <button
+            onClick={addBranch}
+            className="w-full bg-blue-50 border border-blue-200 text-blue-700 text-sm py-2 px-3 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center space-x-2"
+          >
+            <span>➕</span>
+            <span>Add Else If Branch</span>
+          </button>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          <h4 className="text-sm font-medium text-blue-900 mb-2">Available Variables</h4>
+          <div className="text-xs text-blue-700 space-y-1">
+            <div><strong>event.</strong> - Current trigger event data</div>
+            <div><strong>workflow.</strong> - Workflow context variables</div>
+            <div><strong>execution.</strong> - Previous execution results</div>
+          </div>
+          <div className="mt-2 text-xs text-blue-600">
+            <strong>Example:</strong> if (event.user.age {'>='} 18) return true;
+          </div>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-md p-3">
+          <h4 className="text-sm font-medium text-green-900 mb-2">Branch Execution</h4>
+          <div className="text-xs text-green-700">
+            <div>• Branches are evaluated in order (If → Else If → Else)</div>
+            <div>• First branch that returns true will execute</div>
+            <div>• Each branch has its own output connection</div>
+            <div>• Use the "Add Condition" button to add more Else If branches</div>
+            <div>• Reorder branches using the up/down arrows</div>
+          </div>
+        </div>
+
+        <div>
+          <button
+            onClick={testNode}
+            disabled={isTesting}
+            className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
+          >
+            {isTesting ? 'Testing...' : 'Test All Branches'}
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const getNodeIcon = (type: string) => {
     switch (type) {
@@ -461,7 +696,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
         return (
           <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
             <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0 18 0z" />
             </svg>
           </div>
         );

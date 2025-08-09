@@ -79,9 +79,7 @@ export type PromoCodeActionConfig = {
 
 export type ConditionActionConfig = {
   type: 'condition';
-  conditionType: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'not_contains';
-  leftOperand: string;
-  rightOperand: string;
+  condition: string;
   description?: string;
 };
 
@@ -707,56 +705,28 @@ class WorkflowService {
    * Execute condition action
    */
   async executeConditionAction(action: ConditionActionConfig, eventData: any, workflowContext?: any): Promise<any> {
-    // Import the data resolution service
-    const { DataResolutionService } = await import('./data-resolution');
-
-    // Create data context for variable resolution
-    const dataContext = {
-      event: eventData,
-      workflowContext
-    };
-
-    // Resolve left operand
-    const leftValue = DataResolutionService.resolveExpression(action.leftOperand, dataContext);
-    
-    // Resolve right operand
-    const rightValue = DataResolutionService.resolveExpression(action.rightOperand, dataContext);
-
-    // Evaluate condition
-    let result = false;
-    
-    switch (action.conditionType) {
-      case 'equals':
-        result = leftValue === rightValue;
-        break;
-      case 'not_equals':
-        result = leftValue !== rightValue;
-        break;
-      case 'greater_than':
-        result = Number(leftValue) > Number(rightValue);
-        break;
-      case 'less_than':
-        result = Number(leftValue) < Number(rightValue);
-        break;
-      case 'contains':
-        result = String(leftValue).includes(String(rightValue));
-        break;
-      case 'not_contains':
-        result = !String(leftValue).includes(String(rightValue));
-        break;
-      default:
-        throw new Error(`Unknown condition type: ${action.conditionType}`);
+    try {
+      // Create execution context with available variables
+      const context = {
+        event: eventData,
+        workflow: workflowContext,
+        execution: this.executionHistory || []
+      };
+      
+      // Safely execute the user's condition code
+      const result = new Function('event', 'workflow', 'execution', 
+        `return (function() { ${action.condition} })();`
+      )(context.event, context.workflow, context.execution);
+      
+      return {
+        condition: action.condition,
+        result: Boolean(result),
+        context: context,
+        description: action.description
+      };
+    } catch (error) {
+      throw new Error(`Condition evaluation failed: ${error.message}`);
     }
-
-    return {
-      conditionType: action.conditionType,
-      leftOperand: action.leftOperand,
-      rightOperand: action.rightOperand,
-      leftValue,
-      rightValue,
-      result,
-      description: action.description
-    };
   }
 
   async executePromoCodeAction(action: PromoCodeActionConfig, eventData: any, workflowId?: string): Promise<any> {

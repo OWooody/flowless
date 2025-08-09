@@ -95,38 +95,114 @@ export async function POST(req: NextRequest) {
     }
 
     if (nodeType === 'condition') {
-      // Handle condition nodes
-      const leftValue = nodeData.leftOperand || '';
-      const rightValue = nodeData.rightOperand || '';
-      const conditionType = nodeData.conditionType || 'equals';
-      
-      let result = false;
-      
-      switch (conditionType) {
-        case 'equals':
-          result = leftValue === rightValue;
-          break;
-        case 'not_equals':
-          result = leftValue !== rightValue;
-          break;
-        case 'greater_than':
-          result = Number(leftValue) > Number(rightValue);
-          break;
-        case 'less_than':
-          result = Number(leftValue) < Number(rightValue);
-          break;
-        case 'contains':
-          result = String(leftValue).includes(String(rightValue));
-          break;
-        default:
-          result = leftValue === rightValue;
+      // Handle condition nodes with custom JavaScript code and multiple branches
+      try {
+        const branches = nodeData.branches || [
+          { id: 'if-1', type: 'if', condition: 'return true;', label: 'If', isActive: true },
+          { id: 'else-1', type: 'else', condition: undefined, label: 'Else', isActive: false }
+        ];
+        
+        // Create test context with sample data
+        const testContext = {
+          event: {
+            user: { age: 25, country: 'US', isVIP: true, email: 'user@example.com' },
+            order: { total: 150, status: 'pending', items: ['item1', 'item2'] },
+            timestamp: new Date().toISOString(),
+            category: 'purchase',
+            value: 150
+          },
+          workflow: {
+            config: { minAge: 18, maxOrderValue: 1000, allowedCountries: ['US', 'CA', 'UK'] },
+            variables: { promoCode: 'SUMMER20', discount: 0.1 }
+          },
+          execution: [
+            { output: { previousResult: 'success' }, timestamp: new Date().toISOString() }
+          ]
+        };
+        
+        // Test each branch and determine which one would execute
+        const branchResults = [];
+        let executedBranch = null;
+        
+        for (const branch of branches) {
+          if (branch.type === 'else') {
+            // Else branch doesn't have a condition
+            branchResults.push({
+              branchId: branch.id,
+              branchType: branch.type,
+              condition: 'No condition (default path)',
+              result: null,
+              wouldExecute: !executedBranch // Execute if no other branch executed
+            });
+            if (!executedBranch) {
+              executedBranch = branch;
+            }
+          } else if (branch.condition && branch.isActive) {
+            try {
+              // Safely execute the condition code
+              const result = new Function('event', 'workflow', 'execution', 
+                `return (function() { ${branch.condition} })();`
+              )(testContext.event, testContext.workflow, testContext.execution);
+              
+              const booleanResult = Boolean(result);
+              branchResults.push({
+                branchId: branch.id,
+                branchType: branch.type,
+                condition: branch.condition,
+                result: booleanResult,
+                evaluatedValue: result,
+                wouldExecute: booleanResult && !executedBranch
+              });
+              
+              if (booleanResult && !executedBranch) {
+                executedBranch = branch;
+              }
+            } catch (error) {
+              branchResults.push({
+                branchId: branch.id,
+                branchType: branch.type,
+                condition: branch.condition,
+                result: null,
+                error: error.message,
+                wouldExecute: false
+              });
+            }
+          } else {
+            branchResults.push({
+              branchId: branch.id,
+              branchType: branch.type,
+              condition: branch.condition || 'No condition',
+              result: null,
+              wouldExecute: false,
+              inactive: !branch.isActive
+            });
+          }
+        }
+        
+        return NextResponse.json({
+          success: true,
+          output: { 
+            executedBranch: executedBranch ? executedBranch.id : null,
+            branchResults,
+            testData: testContext,
+            totalBranches: branches.length,
+            activeBranches: branches.filter(b => b.isActive).length
+          },
+          logs: [
+            `Condition node tested with ${branches.length} branches`,
+            `Executed branch: ${executedBranch ? executedBranch.id : 'none'}`,
+            ...branchResults.map(b => 
+              `${b.branchType} branch ${b.branchId}: ${b.result === null ? 'no condition' : b.result}`
+            )
+          ]
+        });
+      } catch (error) {
+        return NextResponse.json({
+          success: false,
+          error: `Condition evaluation failed: ${error.message}`,
+          branches: nodeData.branches
+        });
       }
-
-      return NextResponse.json({
-        success: true,
-        output: { result, condition: `${leftValue} ${conditionType} ${rightValue}` },
-        logs: [`Condition evaluated: ${leftValue} ${conditionType} ${rightValue} = ${result}`]
-      });
     }
 
     if (nodeType === 'trigger') {
