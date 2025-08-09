@@ -103,30 +103,32 @@ export class TypeScriptExecutor {
               return current && current[key] !== undefined ? current[key] : defaultValue;
             }, obj);
           },
-          // Set nested object property
+          // Set nested object property safely
           set: (obj: any, path: string, value: any) => {
             const keys = path.split('.');
-            const lastKey = keys.pop()!;
+            const lastKey = keys.pop();
             const target = keys.reduce((current, key) => {
               if (!current[key] || typeof current[key] !== 'object') {
                 current[key] = {};
               }
               return current[key];
             }, obj);
-            target[lastKey] = value;
+            if (lastKey) {
+              target[lastKey] = value;
+            }
             return obj;
           },
-          // Transform data structures
-          transform: (data: any, transformer: (item: any) => any) => {
-            if (Array.isArray(data)) {
-              return data.map(transformer);
+          // Filter array based on predicate
+          filter: (data: any[], predicate: (item: any) => boolean) => {
+            if (!Array.isArray(data)) {
+              return [];
             }
-            return transformer(data);
+            return data.filter(predicate);
           },
-          // Filter data
-          filter: (data: any, predicate: (item: any) => boolean) => {
-            if (Array.isArray(data)) {
-              return data.filter(predicate);
+          // Find item in array based on predicate
+          find: (data: any[], predicate: (item: any) => boolean) => {
+            if (!Array.isArray(data)) {
+              return null;
             }
             return predicate(data) ? data : null;
           },
@@ -134,6 +136,7 @@ export class TypeScriptExecutor {
       };
 
       // Create the function from the code with enhanced context
+      const previousOutputs = context.previous || {};
       const functionBody = `
         try {
           // Log available variables for debugging
@@ -142,6 +145,21 @@ export class TypeScriptExecutor {
           console.log('- workflow:', workflow);
           console.log('- previous:', previous);
           console.log('- utils:', utils);
+          
+          // Make previous node outputs available as individual variables
+          // Handle both sanitized names (for storage) and original names (for access)
+          ${Object.keys(previousOutputs).map(nodeName => {
+            // Create variables for both the sanitized name and the original name
+            const sanitizedName = nodeName.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+            const originalName = nodeName; // Keep the original name as well
+            
+            // Create variables for both names
+            return `
+            // Variable for sanitized name (as stored)
+            const ${sanitizedName} = previous['${nodeName}'];
+            // Variable for original name (as user expects)
+            const ${originalName} = previous['${nodeName}'];`;
+          }).join('\n          ')}
           
           ${code}
         } catch (error) {
