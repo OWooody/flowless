@@ -25,16 +25,27 @@ export type TriggerConfig = {
 
 export type ConditionActionConfig = {
   type: 'condition';
-  condition: string;
+  condition?: string;  // Direct condition property (legacy format)
+  data?: {             // Data wrapper (new format from visual builder)
+    condition?: string;
+    [key: string]: any;
+  };
   description?: string;
 };
 
 export type PersonalizationActionConfig = {
   type: 'personalization';
-  ruleName: string;
-  trigger: string;
-  message: string;
-  messageType: string;
+  ruleName?: string;  // Direct properties (legacy format)
+  trigger?: string;
+  message?: string;
+  messageType?: string;
+  data?: {            // Data wrapper (new format from visual builder)
+    ruleName?: string;
+    trigger?: string;
+    message?: string;
+    messageType?: string;
+    [key: string]: any;
+  };
   variableMappings?: {
     ruleName?: string;
     trigger?: string;
@@ -44,7 +55,11 @@ export type PersonalizationActionConfig = {
 
 export type TypeScriptActionConfig = {
   type: 'typescript';
-  code: string;
+  code?: string;  // Direct code property (legacy format)
+  data?: {        // Data wrapper (new format from visual builder)
+    code?: string;
+    [key: string]: any;
+  };
   description?: string;
 };
 
@@ -256,18 +271,25 @@ class WorkflowService {
         context: workflowContext || {}
       };
 
+      // For personalization actions, we need to handle both legacy and new format
+      // The properties are stored in action.data (new format) or directly on action (legacy format)
+      const ruleName = action.data?.ruleName || action.ruleName;
+      const trigger = action.data?.trigger || action.trigger;
+      const message = action.data?.message || action.message;
+      const messageType = action.data?.messageType || action.messageType;
+      
       // Resolve action parameters
       const resolvedRuleName = action.variableMappings?.ruleName 
         ? DataResolutionService.resolveExpression(action.variableMappings.ruleName, dataContext)
-        : action.ruleName;
+        : ruleName;
 
       const resolvedTrigger = action.variableMappings?.trigger
         ? DataResolutionService.resolveExpression(action.variableMappings.trigger, dataContext)
-        : action.trigger;
+        : trigger;
 
       const resolvedMessage = action.variableMappings?.message
         ? DataResolutionService.resolveExpression(action.variableMappings.message, dataContext)
-        : action.message;
+        : message;
 
       // Ensure we have valid values
       if (!resolvedTrigger) {
@@ -284,7 +306,7 @@ class WorkflowService {
         description: `Workflow-generated rule for ${resolvedTrigger}`,
         conditions: this.getConditionsFromTrigger(resolvedTrigger),
         content: {
-          type: action.messageType,
+          type: messageType,
           template: resolvedMessage,
           variables: {}
         },
@@ -312,7 +334,7 @@ class WorkflowService {
         ruleName: resolvedRuleName,
         trigger: resolvedTrigger,
         message: resolvedMessage,
-        messageType: action.messageType
+        messageType: messageType
       };
     } catch (error) {
       console.error('🎯 Error executing personalization action:', error);
@@ -347,8 +369,16 @@ class WorkflowService {
         context: workflowContext || {}
       };
 
+      // For condition actions, we need to handle both legacy and new format
+      // The condition is stored in action.data.condition (new format) or action.condition (legacy format)
+      const conditionExpression = action.data?.condition || action.condition;
+      
+      if (!conditionExpression) {
+        throw new Error('Condition expression is required');
+      }
+      
       // Resolve the condition expression
-      const resolvedCondition = DataResolutionService.resolveExpression(action.condition, dataContext);
+      const resolvedCondition = DataResolutionService.resolveExpression(conditionExpression, dataContext);
       
       if (!resolvedCondition) {
         throw new Error('Failed to resolve condition expression');
@@ -360,7 +390,7 @@ class WorkflowService {
       console.log('✅ Condition evaluation result:', result);
       
       return {
-        condition: action.condition,
+        condition: conditionExpression,
         resolvedCondition,
         result,
         description: action.description
@@ -389,15 +419,29 @@ class WorkflowService {
         context: workflowContext || {}
       };
 
-      // Resolve the TypeScript code
-      const resolvedCode = DataResolutionService.resolveExpression(action.code, dataContext);
+      // For TypeScript actions, we need to handle the code differently than variable expressions
+      // The code is stored in action.data.code (new format) or action.code (legacy format)
+      let resolvedCode = action.data?.code || action.code;
       
-      if (!resolvedCode) {
-        throw new Error('Failed to resolve TypeScript code');
+      if (resolvedCode && typeof resolvedCode === 'string' && resolvedCode.trim()) {
+        // Check if the code contains any {{}} variable placeholders
+        if (resolvedCode.includes('{{')) {
+          // Resolve any variables in the code
+          resolvedCode = DataResolutionService.resolveTextVariables(resolvedCode, dataContext);
+        }
+        
+        // Ensure we have valid code after resolution
+        if (!resolvedCode || typeof resolvedCode !== 'string' || !resolvedCode.trim()) {
+          resolvedCode = action.data?.code || action.code;
+        }
+      }
+      
+      if (!resolvedCode || typeof resolvedCode !== 'string' || !resolvedCode.trim()) {
+        throw new Error(`TypeScript code cannot be empty. Action data: ${JSON.stringify(action.data)}, Action code: "${action.code}", Final resolved: "${resolvedCode}"`);
       }
 
-             // Evaluate the TypeScript code
-       const result = await this.evaluateTypeScript(resolvedCode, inputData, workflowContext);
+      // Evaluate the TypeScript code
+      const result = await this.evaluateTypeScript(resolvedCode, inputData, workflowContext);
       
       console.log('✅ TypeScript action completed:', result);
       
