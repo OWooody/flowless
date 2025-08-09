@@ -6,6 +6,7 @@ import { useWorkflowContext } from './WorkflowContext';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { autocompletion, CompletionContext, Completion, CompletionResult } from '@codemirror/autocomplete';
 
 interface ConditionBranch {
   id: string;
@@ -20,6 +21,101 @@ interface ConditionNodeData {
   label?: string;
 }
 
+// Enhanced autocompletion with previous node outputs for condition expressions
+function createConditionCompletions(previousNodeOutputs: Record<string, any> = {}) {
+  return (context: CompletionContext): CompletionResult | null => {
+    const word = context.matchBefore(/[\w.]*$/);
+    if (!word) return null;
+
+    const completions: Completion[] = [];
+    
+    // JavaScript comparison operators and logical operators
+    const operators = [
+      { label: '===', type: 'operator', info: 'Strict equality' },
+      { label: '!==', type: 'operator', info: 'Strict inequality' },
+      { label: '==', type: 'operator', info: 'Loose equality' },
+      { label: '!=', type: 'operator', info: 'Loose inequality' },
+      { label: '>', type: 'operator', info: 'Greater than' },
+      { label: '>=', type: 'operator', info: 'Greater than or equal' },
+      { label: '<', type: 'operator', info: 'Less than' },
+      { label: '<=', type: 'operator', info: 'Less than or equal' },
+      { label: '&&', type: 'operator', info: 'Logical AND' },
+      { label: '||', type: 'operator', info: 'Logical OR' },
+      { label: '!', type: 'operator', info: 'Logical NOT' },
+    ];
+
+    // JavaScript built-ins useful for conditions
+    const jsBuiltIns = [
+      { label: 'Array.isArray', type: 'function', info: 'Check if value is an array' },
+      { label: 'typeof', type: 'keyword', info: 'Get type of value' },
+      { label: 'instanceof', type: 'keyword', info: 'Check if object is instance of class' },
+      { label: 'in', type: 'keyword', info: 'Check if property exists in object' },
+      { label: 'hasOwnProperty', type: 'method', info: 'Check if object has own property' },
+      { label: 'includes', type: 'method', info: 'Check if array/string contains value' },
+      { label: 'startsWith', type: 'method', info: 'Check if string starts with value' },
+      { label: 'endsWith', type: 'method', info: 'Check if string ends with value' },
+      { label: 'length', type: 'property', info: 'Get length of array/string' },
+      { label: 'toString', type: 'method', info: 'Convert value to string' },
+      { label: 'Number', type: 'class', info: 'Number constructor and utilities' },
+      { label: 'String', type: 'class', info: 'String constructor and utilities' },
+      { label: 'Boolean', type: 'class', info: 'Boolean constructor and utilities' },
+      { label: 'Date', type: 'class', info: 'Date constructor and utilities' },
+      { label: 'RegExp', type: 'class', info: 'Regular expression constructor' },
+      { label: 'JSON', type: 'class', info: 'JSON utility functions' },
+    ];
+
+    completions.push(...operators, ...jsBuiltIns);
+
+    // Add previous node outputs by node name
+    Object.entries(previousNodeOutputs).forEach(([nodeName, value]) => {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        // For nested objects, add the node name as a variable
+        completions.push({
+          label: nodeName,
+          type: 'variable',
+          info: `${nodeName} from previous node output`
+        });
+        
+        // Add nested properties
+        Object.keys(value).forEach(nestedKey => {
+          completions.push({
+            label: `${nodeName}.${nestedKey}`,
+            type: 'property',
+            info: `${nestedKey} from ${nodeName}`
+          });
+        });
+      } else if (Array.isArray(value)) {
+        // For arrays, add the node name as a variable
+        completions.push({
+          label: nodeName,
+          type: 'variable',
+          info: `${nodeName} (array) from previous node output`
+        });
+        
+        // Add array methods
+        completions.push(
+          { label: `${nodeName}.length`, type: 'property', info: `Length of ${nodeName} array` },
+          { label: `${nodeName}.includes()`, type: 'method', info: `Check if ${nodeName} contains value` },
+          { label: `${nodeName}.indexOf()`, type: 'method', info: `Find index of value in ${nodeName}` }
+        );
+      } else {
+        // For simple values, add them directly
+        completions.push({
+          label: nodeName,
+          type: 'variable',
+          info: `${nodeName}: ${String(value)}`
+        });
+      }
+    });
+
+    return {
+      from: word.from,
+      options: completions,
+      validFor: /^[\w.]*$/
+    };
+  };
+}
+
 const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Condition');
@@ -27,7 +123,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
   const [isRunning, setIsRunning] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const { setNodes, getNodes } = useReactFlow();
-  const { validateNodeName, removeNodeOutput } = useWorkflowContext();
+  const { validateNodeName, removeNodeOutput, previousNodeOutputs } = useWorkflowContext();
 
   // Initialize default branches if none exist
   const branches = data.branches || [
@@ -201,13 +297,27 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
     }
   }, [branches]);
 
-  // Helper function to safely evaluate condition expressions
+  // Helper function to safely evaluate condition expressions with previous node outputs
   const evaluateCondition = (condition: string): boolean => {
-    // Remove any dangerous functions and create a safe evaluation context
-    const safeEval = new Function('return ' + condition);
+    if (!condition.trim()) return false;
     
     try {
-      const result = safeEval();
+      // Create a safe evaluation context with previous node outputs
+      const context = {
+        ...previousNodeOutputs,
+        // Add utility functions and constructors
+        Array, Object, String, Number, Boolean, Date, RegExp, JSON
+      };
+      
+      // Create a function that evaluates the condition in the context
+      const safeEval = new Function(
+        ...Object.keys(context),
+        `return ${condition}`
+      );
+      
+      // Execute with the context as arguments
+      const result = safeEval(...Object.values(context));
+      
       // Convert result to boolean
       return Boolean(result);
     } catch (error) {
@@ -281,6 +391,22 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
         </button>
       </div>
       
+      {/* Available Variables Info */}
+      {Object.keys(previousNodeOutputs).length > 0 && (
+        <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="text-xs text-blue-700 font-medium mb-1">
+            💡 Available variables from previous nodes:
+          </div>
+          <div className="text-xs text-blue-600 space-x-2">
+            {Object.keys(previousNodeOutputs).map((nodeName, index) => (
+              <span key={index} className="inline-block bg-blue-100 px-2 py-1 rounded">
+                {nodeName}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      
       {/* Condition Branches */}
       <div className="p-4 space-y-3">
         {branches.map((branch, index) => (
@@ -313,7 +439,16 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
                     <CodeMirror
                       value={branch.condition || ''}
                       onChange={(value: string) => updateBranchCondition(branch.id, value)}
-                      extensions={[javascript()]}
+                      extensions={[
+                        javascript(),
+                        autocompletion({
+                          override: [createConditionCompletions(previousNodeOutputs)],
+                          defaultKeymap: true,
+                          activateOnTyping: true,
+                          maxRenderedOptions: 15,
+                          activateOnTypingDelay: 100
+                        })
+                      ]}
                       theme={oneDark}
                       basicSetup={{
                         lineNumbers: false,
@@ -371,6 +506,19 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
           <span>➕</span>
           <span>Add Condition</span>
         </button>
+        
+        {/* Help Section */}
+        <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="text-xs text-gray-600 font-medium mb-2">
+            💡 Condition Examples:
+          </div>
+          <div className="text-xs text-gray-500 space-y-1">
+            <div>• <code className="bg-gray-200 px-1 rounded">user.age {'>'} 18</code> - Check if user is adult</div>
+            <div>• <code className="bg-gray-200 px-1 rounded">order.total {'>'} 100</code> - Check if order exceeds amount</div>
+            <div>• <code className="bg-gray-200 px-1 rounded">Array.isArray(products)</code> - Check if products is array</div>
+            <div>• <code className="bg-gray-200 px-1 rounded">status === 'active' && verified === true</code> - Multiple conditions</div>
+          </div>
+        </div>
       </div>
     </div>
   );
