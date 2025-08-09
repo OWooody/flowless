@@ -423,15 +423,17 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
         </div>
       )}
 
-      <Handle
-        type="target"
-        position={Position.Left}
+      <Handle 
+        type="target" 
+        position={Position.Left} 
         className="w-3 h-3 bg-gray-400"
+        style={{ left: '-25px' }}
       />
-      <Handle
-        type="source"
-        position={Position.Right}
+      <Handle 
+        type="source" 
+        position={Position.Right} 
         className="w-3 h-3 bg-gray-400"
+        style={{ right: '-25px' }}
       />
     </div>
   );

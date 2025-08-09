@@ -82,26 +82,14 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
       <Handle
         type="target"
         position={Position.Left}
-        className="w-5 h-5 bg-white border-2 border-yellow-400 shadow-lg hover:scale-110 transition-transform duration-200 cursor-crosshair"
-        style={{ left: '-10px' }}
+        className="w-3 h-3 bg-white"
+        style={{ left: '-25px' }}
       />
-      
-      {/* True branch handle */}
       <Handle
         type="source"
         position={Position.Right}
-        id="true"
-        className="w-5 h-5 bg-green-500 border-2 border-green-400 shadow-lg hover:scale-110 transition-transform duration-200 cursor-crosshair"
-        style={{ right: '-10px', top: '30%' }}
-      />
-      
-      {/* False branch handle */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="false"
-        className="w-5 h-5 bg-red-500 border-2 border-red-400 shadow-lg hover:scale-110 transition-transform duration-200 cursor-crosshair"
-        style={{ right: '-10px', top: '70%' }}
+        className="w-3 h-3 bg-white"
+        style={{ right: '-25px' }}
       />
       
       <div className="p-4">

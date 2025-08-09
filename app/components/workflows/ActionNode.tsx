@@ -106,8 +106,18 @@ const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
 
   return (
     <div className={`bg-gradient-to-r ${getGradient(data.actionType)} text-white rounded-lg shadow-lg border-2 ${selected ? 'border-blue-300' : 'border-blue-400'} min-w-[200px]`}>
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-white" />
-      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-white" />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        className="w-3 h-3 bg-white"
+        style={{ left: '-25px' }}
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="w-3 h-3 bg-white"
+        style={{ right: '-25px' }}
+      />
       
       <div className="p-4">
         <div className="flex items-center mb-2">
