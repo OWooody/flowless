@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useReactFlow, Node } from 'reactflow';
-import SmartInput from './SmartInput';
 
 interface PropertyPanelProps {
   selectedNode: Node | null;
@@ -10,64 +9,12 @@ interface PropertyPanelProps {
 
 export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
   const { getNode, setNodes, getNodes } = useReactFlow();
-  const [eventData, setEventData] = useState<any>(null);
-  const [workflowContext, setWorkflowContext] = useState<any>(null);
   const [localNodeData, setLocalNodeData] = useState<any>({});
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [previousNodeOutputs, setPreviousNodeOutputs] = useState<any>({});
 
-  // Set sample event data when a node is selected
-  useEffect(() => {
-    if (selectedNode) {
-      // Set sample event data for demonstration
-      setEventData({
-        id: 'event_123',
-        name: 'webhook_received',
-        category: 'integration',
-        action: 'data_processed',
-        value: 100,
-        itemName: 'API Call',
-        itemId: 'api_001',
-        itemCategory: 'Integration',
-        userId: 'user123',
-        userPhone: '+966533595154',
-        organizationId: 'org_2y3sRhCtQr3GmYs8k9Dluk5v2ws',
-        path: '/api/webhook',
-        pageTitle: 'Webhook Endpoint',
-        ipAddress: '::1',
-        referrer: 'https://external-service.com',
-        userAgent: 'Mozilla/5.0...',
-        timestamp: new Date().toISOString()
-      });
-    }
-  }, [selectedNode]);
 
-  // Create mock workflow context for design phase
-  useEffect(() => {
-    if (selectedNode) {
-      // Get all nodes from the workflow
-      const allNodes = getNodes();
-      
-      // Create mock workflow context
-      const mockContext: any = {};
-      
-      // Add event data variables for condition nodes
-      if (eventData) {
-        mockContext.event = eventData;
-        // Also add common event fields directly for easier access
-        mockContext.userId = eventData.userId;
-        mockContext.value = eventData.value;
-        mockContext.category = eventData.category;
-        mockContext.userEmail = eventData.userEmail;
-        mockContext.userPhone = eventData.userPhone;
-        mockContext.itemName = eventData.itemName;
-        mockContext.itemId = eventData.itemId;
-        mockContext.itemCategory = eventData.itemCategory;
-      }
-      
-      setWorkflowContext(mockContext);
-    }
-  }, [selectedNode, getNodes, eventData]);
 
   // Sync local state when selectedNode changes
   useEffect(() => {
@@ -108,7 +55,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
     );
   };
 
-  // Debounced update for SmartInput components
+  // Debounced update for form inputs
   const debouncedUpdateNodeData = (key: string, value: any) => {
     // Use a small delay to batch updates
     setTimeout(() => {
@@ -118,6 +65,47 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
 
   const handleInputBlur = (key: string, value: string) => {
     updateNodeData(key, value);
+  };
+
+  const testNode = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    
+    try {
+      const response = await fetch('/api/workflows/test-node', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodeId: selectedNode?.id,
+          nodeType: selectedNode?.type,
+          nodeData: localNodeData,
+          previousOutputs: previousNodeOutputs,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Store this node's output for future tests
+        setPreviousNodeOutputs((prev: any) => ({
+          ...prev,
+          [selectedNode?.id || '']: result.output
+        }));
+      }
+      
+      setTestResult(result);
+    } catch (error) {
+      setTestResult({ success: false, error: 'Failed to test node' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const clearTestData = () => {
+    setPreviousNodeOutputs({});
+    setTestResult(null);
   };
 
   const renderTriggerProperties = () => (
@@ -173,7 +161,15 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
         </div>
       )}
 
-
+      <div>
+        <button
+          onClick={testNode}
+          disabled={isTesting}
+          className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
+        >
+          {isTesting ? 'Testing...' : 'Test Node'}
+        </button>
+      </div>
     </div>
   );
 
@@ -212,73 +208,91 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
             </select>
           </div>
 
-          <SmartInput
-            value={nodeData.url || ''}
-            onChange={(value) => debouncedUpdateNodeData('url', value)}
-            label="Request URL"
-            placeholder="https://api.example.com/endpoint"
-            className="mb-4"
-            eventData={eventData}
-            workflowContext={workflowContext}
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Request URL
+            </label>
+            <input
+              type="text"
+              value={nodeData.url || ''}
+              onChange={(e) => debouncedUpdateNodeData('url', e.target.value)}
+              placeholder="https://api.example.com/endpoint"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
 
-          <SmartInput
-            value={nodeData.headers || ''}
-            onChange={(value) => debouncedUpdateNodeData('headers', value)}
-            label="Headers (JSON)"
-            placeholder='{"Content-Type": "application/json"}'
-            className="mb-4"
-            eventData={eventData}
-            workflowContext={workflowContext}
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Headers (JSON)
+            </label>
+            <textarea
+              value={nodeData.headers || ''}
+              onChange={(e) => debouncedUpdateNodeData('headers', e.target.value)}
+              placeholder='{"Content-Type": "application/json"}'
+              rows={3}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
 
-          <SmartInput
-            value={nodeData.body || ''}
-            onChange={(value) => debouncedUpdateNodeData('body', value)}
-            label="Request Body (JSON)"
-            placeholder='{"key": "value"}'
-            className="mb-4"
-            eventData={eventData}
-            workflowContext={workflowContext}
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Request Body (JSON)
+            </label>
+            <textarea
+              value={nodeData.body || ''}
+              onChange={(e) => debouncedUpdateNodeData('body', e.target.value)}
+              placeholder='{"key": "value"}'
+              rows={3}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
         </>
       )}
 
       {nodeData.actionType === 'data_processing' && (
         <>
-          <SmartInput
-            value={nodeData.script || ''}
-            onChange={(value) => debouncedUpdateNodeData('script', value)}
-            label="Processing Script"
-            placeholder="// JavaScript code to process data"
-            className="mb-4"
-            eventData={eventData}
-            workflowContext={workflowContext}
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Processing Script
+            </label>
+            <textarea
+              value={nodeData.script || ''}
+              onChange={(e) => debouncedUpdateNodeData('script', e.target.value)}
+              placeholder="// JavaScript code to process data"
+              rows={4}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
         </>
       )}
 
       {nodeData.actionType === 'webhook_call' && (
         <>
-          <SmartInput
-            value={nodeData.webhookUrl || ''}
-            onChange={(value) => debouncedUpdateNodeData('webhookUrl', value)}
-            label="Webhook URL"
-            placeholder="https://external-service.com/webhook"
-            className="mb-4"
-            eventData={eventData}
-            workflowContext={workflowContext}
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Webhook URL
+            </label>
+            <input
+              type="text"
+              value={nodeData.webhookUrl || ''}
+              onChange={(e) => debouncedUpdateNodeData('webhookUrl', e.target.value)}
+              placeholder="https://external-service.com/webhook"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
 
-          <SmartInput
-            value={nodeData.webhookPayload || ''}
-            onChange={(value) => debouncedUpdateNodeData('webhookPayload', value)}
-            label="Payload (JSON)"
-            placeholder='{"data": "value"}'
-            className="mb-4"
-            eventData={eventData}
-            workflowContext={workflowContext}
-          />
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Payload (JSON)
+            </label>
+            <textarea
+              value={nodeData.webhookPayload || ''}
+              onChange={(e) => debouncedUpdateNodeData('webhookPayload', e.target.value)}
+              placeholder='{"data": "value"}'
+              rows={3}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
         </>
       )}
 
@@ -294,113 +308,40 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
+
+      <div>
+        <button
+          onClick={testNode}
+          disabled={isTesting}
+          className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
+        >
+          {isTesting ? 'Testing...' : 'Test Node'}
+        </button>
+      </div>
     </div>
   );
 
   const renderCodeProperties = () => {
-    const testCode = async () => {
-      setIsTesting(true);
-      setTestResult(null);
-      
-      try {
-        const response = await fetch('/api/workflows/test-typescript', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            code: nodeData.code || '',
-            context: {
-              event: eventData,
-              workflow: workflowContext,
-              previous: null,
-            },
-          }),
-        });
-
-        const result = await response.json();
-        setTestResult(result);
-      } catch (error) {
-        setTestResult({ success: false, error: 'Failed to test code' });
-      } finally {
-        setIsTesting(false);
-      }
-    };
-
     return (
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Code
-          </label>
-          <textarea
-            value={localNodeData.code || '// Generic data processing example\nconsole.log("Input data:", input);\nconsole.log("Previous node output:", previous);\n\n// Process any type of data\nconst result = {\n  processed: true,\n  timestamp: new Date().toISOString(),\n  inputData: input,\n  previousData: previous || {},\n  // Add your custom processing logic here\n};\n\nconsole.log("Processing result:", result);\nreturn result;'}
-            onChange={(e) => {
-              setLocalNodeData((prev: any) => ({ ...prev, code: e.target.value }));
-            }}
-            onBlur={(e) => handleInputBlur('code', e.target.value)}
-            placeholder="// Your code here"
-            rows={8}
-            className="w-full border border-gray-300 rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-900 text-gray-100 resize-none"
-            style={{
-              fontFamily: 'monospace',
-              lineHeight: '1.5',
-              padding: '12px',
-              minHeight: '200px',
-              maxHeight: '400px'
-            }}
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Write your TypeScript code here. Use 'return' to pass data to the next node.
-          </p>
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          <h4 className="text-sm font-medium text-blue-900 mb-2">Code Node</h4>
+          <div className="text-xs text-blue-700 space-y-1">
+            <div>• Click on the node to expand and edit code</div>
+            <div>• Double-click the node name to rename it</div>
+            <div>• Code is saved automatically when you click outside</div>
+          </div>
         </div>
 
         <div>
           <button
-            onClick={testCode}
+            onClick={testNode}
             disabled={isTesting}
             className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
           >
-            {isTesting ? 'Testing...' : 'Test Code'}
+            {isTesting ? 'Testing...' : 'Test Node'}
           </button>
         </div>
-
-        {testResult && (
-          <div className={`border rounded-md p-3 ${
-            testResult.success 
-              ? 'bg-green-50 border-green-200' 
-              : 'bg-red-50 border-red-200'
-          }`}>
-            <h4 className={`text-sm font-medium mb-2 ${
-              testResult.success ? 'text-green-900' : 'text-red-900'
-            }`}>
-              Test Result
-            </h4>
-            <div className="text-xs space-y-1">
-              {testResult.success ? (
-                <div className="text-green-700">
-                  <div><strong>Status:</strong> Success</div>
-                  {testResult.output && (
-                    <div><strong>Output:</strong> {JSON.stringify(testResult.output, null, 2)}</div>
-                  )}
-                  {testResult.logs && testResult.logs.length > 0 && (
-                    <div>
-                      <strong>Logs:</strong>
-                      <pre className="mt-1 bg-white p-2 rounded text-xs overflow-auto max-h-20">
-                        {testResult.logs.join('\n')}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-red-700">
-                  <div><strong>Status:</strong> Failed</div>
-                  <div><strong>Error:</strong> {testResult.error}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
           <h4 className="text-sm font-medium text-blue-900 mb-2">Available Variables</h4>
@@ -414,63 +355,9 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
           </div>
         </div>
 
-        <div className="bg-green-50 border border-green-200 rounded-md p-3">
-          <h4 className="text-sm font-medium text-green-900 mb-2">Generic Data Flow Examples</h4>
-          <div className="text-xs text-green-700 space-y-2">
-            <div>
-              <strong>Node 1 - Process Input Data:</strong>
-              <pre className="mt-1 bg-white p-2 rounded text-xs">
-{`// Process any input data
-const { items } = input.data;
-const processed = items.map(item => ({
-  ...item,
-  processed: true,
-  timestamp: new Date().toISOString()
-}));
-return { processedItems: processed, count: processed.length };`}
-              </pre>
-            </div>
-            <div>
-              <strong>Node 2 - Transform Data:</strong>
-              <pre className="mt-1 bg-white p-2 rounded text-xs">
-{`// Transform previous node output
-const { processedItems } = previous;
-const transformed = utils.transform(processedItems, item => ({
-  ...item,
-  value: item.value * 1.1, // Add 10% markup
-  category: item.value > 150 ? 'premium' : 'standard'
-}));
-return { transformedItems: transformed };`}
-              </pre>
-            </div>
-            <div>
-              <strong>Node 3 - Filter and Aggregate:</strong>
-              <pre className="mt-1 bg-white p-2 rounded text-xs">
-{`// Filter and aggregate data
-const { transformedItems } = previous;
-const premium = utils.filter(transformedItems, item => item.category === 'premium');
-const total = transformedItems.reduce((sum, item) => sum + item.value, 0);
-return { 
-  premiumCount: premium.length,
-  totalValue: total,
-  summary: { items: transformedItems.length, premium: premium.length }
-};`}
-              </pre>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-          <h4 className="text-sm font-medium text-yellow-900 mb-2">Code Execution</h4>
-          <div className="text-xs text-yellow-700">
-            <p>• Code runs in a sandboxed environment</p>
-            <p>• Return an object to pass data to next nodes</p>
-            <p>• Use try/catch for error handling</p>
-            <p>• Access previous node output via <code>previous</code> variable</p>
-            <p>• Use <code>utils.merge()</code> to combine objects</p>
-            <p>• Use <code>utils.get()</code> to safely access nested properties</p>
-          </div>
-        </div>
+
+
       </div>
     );
   };
@@ -514,12 +401,12 @@ return {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Left Operand (Variable or Value)
         </label>
-        <SmartInput
+        <input
+          type="text"
           value={nodeData.leftOperand || ''}
-          onChange={(value) => updateNodeData('leftOperand', value)}
+          onChange={(e) => updateNodeData('leftOperand', e.target.value)}
           placeholder="e.g., {event.userId}, 100"
-          eventData={eventData}
-          workflowContext={workflowContext}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
         <p className="mt-1 text-xs text-gray-500">
           Use variables like {'{event.userId}'} or enter a value
@@ -530,12 +417,12 @@ return {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Right Operand (Variable or Value)
         </label>
-        <SmartInput
+        <input
+          type="text"
           value={nodeData.rightOperand || ''}
-          onChange={(value) => updateNodeData('rightOperand', value)}
+          onChange={(e) => updateNodeData('rightOperand', e.target.value)}
           placeholder="e.g., {event.userId}, 100"
-          eventData={eventData}
-          workflowContext={workflowContext}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
         <p className="mt-1 text-xs text-gray-500">
           Use variables like {'{event.userId}'} or enter a value
@@ -551,6 +438,16 @@ return {
             {nodeData.leftOperand || 'Left operand'} {getConditionSymbol(nodeData.conditionType)} {nodeData.rightOperand || 'Right operand'}
           </div>
         </div>
+      </div>
+
+      <div>
+        <button
+          onClick={testNode}
+          disabled={isTesting}
+          className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
+        >
+          {isTesting ? 'Testing...' : 'Test Node'}
+        </button>
       </div>
     </div>
   );
@@ -617,12 +514,72 @@ return {
       {selectedNode.type === 'trigger' && renderTriggerProperties()}
       {selectedNode.type === 'condition' && renderConditionProperties()}
       {selectedNode.type === 'action' && renderActionProperties()}
-                  {selectedNode.type === 'typescript' && renderCodeProperties()}
+      {selectedNode.type === 'typescript' && renderCodeProperties()}
       
       {/* Debug: Show if no properties are rendered */}
       {!['trigger', 'condition', 'action', 'typescript'].includes(selectedNode?.type || '') && (
         <div className="text-sm text-gray-500">
           No properties available for node type: {selectedNode?.type}
+        </div>
+      )}
+
+      {/* Test Results - shown for all node types */}
+      {testResult && (
+        <div className={`border rounded-md p-3 mt-4 ${
+          testResult.success 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <h4 className={`text-sm font-medium mb-2 ${
+            testResult.success ? 'text-green-900' : 'text-red-900'
+          }`}>
+            Test Result
+          </h4>
+          <div className="text-xs space-y-1">
+            {testResult.success ? (
+              <div className="text-green-700">
+                <div><strong>Status:</strong> Success</div>
+                {testResult.output && (
+                  <div><strong>Output:</strong> {JSON.stringify(testResult.output, null, 2)}</div>
+                )}
+                {testResult.logs && testResult.logs.length > 0 && (
+                  <div>
+                    <strong>Logs:</strong>
+                    <pre className="mt-1 bg-white p-2 rounded text-xs overflow-auto max-h-20">
+                      {testResult.logs.join('\n')}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-red-700">
+                <div><strong>Status:</strong> Failed</div>
+                <div><strong>Error:</strong> {testResult.error}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Previous Node Outputs - shown for all node types */}
+      {Object.keys(previousNodeOutputs).length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-4">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-medium text-blue-900">Previous Node Outputs</h4>
+            <button
+              onClick={clearTestData}
+              className="text-xs text-blue-600 hover:text-blue-800 underline"
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="text-xs text-blue-700 space-y-1">
+            {Object.entries(previousNodeOutputs).map(([nodeId, output]) => (
+              <div key={nodeId}>
+                <strong>{nodeId}:</strong> {JSON.stringify(output, null, 2)}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
