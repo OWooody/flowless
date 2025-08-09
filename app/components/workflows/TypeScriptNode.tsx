@@ -242,19 +242,10 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
             <div className="p-3">
               {runResult.success ? (
                 <div className="text-sm">
-                  <div className="font-medium text-gray-700 mb-2">✅ Success</div>
                   {runResult.output && (
                     <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-32">
                       {JSON.stringify(runResult.output, null, 2)}
                     </pre>
-                  )}
-                  {runResult.logs && runResult.logs.length > 0 && (
-                    <div className="mt-2">
-                      <div className="font-medium text-gray-700 mb-1">Logs:</div>
-                      <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-20">
-                        {runResult.logs.join('\n')}
-                      </pre>
-                    </div>
                   )}
                 </div>
               ) : (

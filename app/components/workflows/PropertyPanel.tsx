@@ -538,17 +538,8 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
           <div className="text-xs space-y-1">
             {testResult.success ? (
               <div className="text-green-700">
-                <div><strong>Status:</strong> Success</div>
                 {testResult.output && (
                   <div><strong>Output:</strong> {JSON.stringify(testResult.output, null, 2)}</div>
-                )}
-                {testResult.logs && testResult.logs.length > 0 && (
-                  <div>
-                    <strong>Logs:</strong>
-                    <pre className="mt-1 bg-white p-2 rounded text-xs overflow-auto max-h-20">
-                      {testResult.logs.join('\n')}
-                    </pre>
-                  </div>
                 )}
               </div>
             ) : (
