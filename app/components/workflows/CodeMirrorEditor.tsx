@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
@@ -19,7 +19,7 @@ interface CodeMirrorEditorProps {
 // Custom autocomplete for previous node data
 function createNodeDataCompletions(previousNodeOutputs: Record<string, any> = {}) {
   return (context: CompletionContext): CompletionResult | null => {
-    const word = context.matchBefore(/\{\{[\w.]*$/);
+    const word = context.matchBefore(/[\w.]*$/);
     if (!word) return null;
 
     const completions: Completion[] = [];
@@ -41,29 +41,29 @@ function createNodeDataCompletions(previousNodeOutputs: Record<string, any> = {}
       { label: 'fetch', type: 'function', info: 'Fetch API for HTTP requests' }
     );
 
-    // Add previous node outputs
-    Object.entries(previousNodeOutputs).forEach(([nodeId, output]) => {
+    // Add previous node outputs by name
+    Object.entries(previousNodeOutputs).forEach(([nodeName, output]) => {
       if (typeof output === 'object' && output !== null) {
-        // Add the node ID itself
+        // Add the node name itself
         completions.push({
-          label: `previous.${nodeId}`,
+          label: nodeName,
           type: 'variable',
-          info: `Output from node ${nodeId}`
+          info: `Output from node: ${nodeName}`
         });
 
         // Add nested properties
         Object.keys(output).forEach(key => {
           completions.push({
-            label: `previous.${nodeId}.${key}`,
+            label: `${nodeName}.${key}`,
             type: 'property',
-            info: `${key} from node ${nodeId}`
+            info: `${key} from node: ${nodeName}`
           });
         });
       } else {
         completions.push({
-          label: `previous.${nodeId}`,
+          label: nodeName,
           type: 'variable',
-          info: `Output from node ${nodeId}: ${String(output)}`
+          info: `Output from node: ${nodeName}: ${String(output)}`
         });
       }
     });
@@ -85,38 +85,66 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const editorRef = useRef<HTMLDivElement>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
 
+  // Create a stable reference to the onChange function
+  const stableOnChange = useCallback((newValue: string) => {
+    onChange(newValue);
+  }, [onChange]);
+
+  // Memoize the extensions to avoid recreating them unnecessarily
+  const extensions = useMemo(() => [
+    basicSetup,
+    javascript(),
+    oneDark,
+    autocompletion({
+      override: [createNodeDataCompletions(previousNodeOutputs)],
+      defaultKeymap: true,
+      activateOnTyping: true,
+      maxRenderedOptions: 10
+    }),
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        stableOnChange(update.state.doc.toString());
+      }
+    }),
+    EditorView.theme({
+      '&': {
+        fontSize: '14px',
+        fontFamily: 'monospace'
+      },
+      '.cm-content': {
+        padding: '12px',
+        minHeight: '120px'
+      },
+      '.cm-line': {
+        lineHeight: '1.5'
+      },
+      '.cm-tooltip.cm-tooltip-autocomplete': {
+        backgroundColor: '#2d3748',
+        border: '1px solid #4a5568',
+        borderRadius: '4px',
+        color: '#e2e8f0'
+      },
+      '.cm-tooltip.cm-tooltip-autocomplete > ul': {
+        maxHeight: '200px',
+        overflow: 'auto'
+      },
+      '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+        padding: '4px 8px',
+        cursor: 'pointer'
+      },
+      '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+        backgroundColor: '#4a5568'
+      }
+    })
+  ], [previousNodeOutputs, stableOnChange]);
+
   useEffect(() => {
     if (!editorRef.current) return;
 
-    // Create the editor state with custom autocomplete
+    // Create the editor state with proper autocompletion
     const state = EditorState.create({
       doc: value,
-      extensions: [
-        basicSetup,
-        javascript(),
-        oneDark,
-        autocompletion({
-          override: [createNodeDataCompletions(previousNodeOutputs)]
-        }),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            onChange(update.state.doc.toString());
-          }
-        }),
-        EditorView.theme({
-          '&': {
-            fontSize: '14px',
-            fontFamily: 'monospace'
-          },
-          '.cm-content': {
-            padding: '12px',
-            minHeight: '120px'
-          },
-          '.cm-line': {
-            lineHeight: '1.5'
-          }
-        })
-      ]
+      extensions
     });
 
     const view = new EditorView({
@@ -129,7 +157,7 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     return () => {
       view.destroy();
     };
-  }, []);
+  }, [extensions]);
 
   // Update editor content when value prop changes
   useEffect(() => {
@@ -144,44 +172,6 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       editorView.dispatch(transaction);
     }
   }, [value, editorView]);
-
-  // Update autocomplete when previousNodeOutputs changes
-  useEffect(() => {
-    if (editorView) {
-      // Recreate the editor with updated completions
-      const newState = EditorState.create({
-        doc: editorView.state.doc,
-        extensions: [
-          basicSetup,
-          javascript(),
-          oneDark,
-          autocompletion({
-            override: [createNodeDataCompletions(previousNodeOutputs)]
-          }),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              onChange(update.state.doc.toString());
-            }
-          }),
-          EditorView.theme({
-            '&': {
-              fontSize: '14px',
-              fontFamily: 'monospace'
-            },
-            '.cm-content': {
-              padding: '12px',
-              minHeight: '120px'
-            },
-            '.cm-line': {
-              lineHeight: '1.5'
-            }
-          })
-        ]
-      });
-      
-      editorView.setState(newState);
-    }
-  }, [previousNodeOutputs, editorView, onChange]);
 
   return (
     <div 
