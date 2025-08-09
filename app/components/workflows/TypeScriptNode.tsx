@@ -12,7 +12,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const [isRunning, setIsRunning] = useState(false);
   const [runResult, setRunResult] = useState<any>(null);
   const { setNodes, getNodes } = useReactFlow();
-  const { previousNodeOutputs, addNodeOutput, validateNodeName } = useWorkflowContext();
+  const { previousNodeOutputs, addNodeOutput, validateNodeName, removeNodeOutput } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -37,6 +37,11 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
         return;
       }
 
+      // Remove the old node output if the name is changing
+      if (data.label && data.label !== editValue.trim()) {
+        removeNodeOutput(id);
+      }
+
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -45,7 +50,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
         )
       );
     }
-  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName]);
+  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName, removeNodeOutput]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

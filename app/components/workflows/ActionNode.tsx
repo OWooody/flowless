@@ -21,7 +21,7 @@ const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Action');
   const { setNodes, getNodes } = useReactFlow();
-  const { validateNodeName } = useWorkflowContext();
+  const { validateNodeName, removeNodeOutput } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -46,6 +46,11 @@ const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
         return;
       }
 
+      // Remove the old node output if the name is changing
+      if (data.label && data.label !== editValue.trim()) {
+        removeNodeOutput(id);
+      }
+
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -54,7 +59,7 @@ const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
         )
       );
     }
-  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName]);
+  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName, removeNodeOutput]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 
 interface WorkflowContextType {
   previousNodeOutputs: Record<string, any>;
   setPreviousNodeOutputs: (outputs: Record<string, any>) => void;
   addNodeOutput: (nodeId: string, nodeName: string, output: any) => void;
+  removeNodeOutput: (nodeId: string, oldNodeName?: string) => void;
   clearNodeOutputs: () => void;
   validateNodeName: (name: string, existingNames?: string[]) => { isValid: boolean; error?: string };
   sanitizeNodeName: (name: string) => string;
@@ -61,30 +62,72 @@ const validateNodeName = (name: string, existingNames: string[] = []): { isValid
 
 export const WorkflowProvider: React.FC<WorkflowProviderProps> = ({ children }) => {
   const [previousNodeOutputs, setPreviousNodeOutputs] = useState<Record<string, any>>({});
+  const [nodeIdToName, setNodeIdToName] = useState<Record<string, string>>({});
+  const nodeIdToNameRef = useRef<Record<string, string>>({});
+
+  // Keep the ref in sync with the state
+  useEffect(() => {
+    nodeIdToNameRef.current = nodeIdToName;
+  }, [nodeIdToName]);
 
   const addNodeOutput = (nodeId: string, nodeName: string, output: any) => {
+    const sanitizedName = sanitizeNodeName(nodeName);
+    
     setPreviousNodeOutputs(prev => {
-      // Sanitize the node name
-      const sanitizedName = sanitizeNodeName(nodeName);
+      // Get the current node ID to name mapping from the ref
+      const oldNodeName = nodeIdToNameRef.current[nodeId];
+      const oldSanitizedName = oldNodeName ? sanitizeNodeName(oldNodeName) : null;
       
-      // If output is an object, spread its properties directly
+      // Remove the old entry if it exists and is different
+      const cleanedPrev = oldSanitizedName && oldSanitizedName !== sanitizedName 
+        ? { ...prev }
+        : prev;
+      
+      if (oldSanitizedName && oldSanitizedName !== sanitizedName) {
+        delete cleanedPrev[oldSanitizedName];
+      }
+      
+      // Store the new output
       if (typeof output === 'object' && output !== null && !Array.isArray(output)) {
         return {
-          ...prev,
+          ...cleanedPrev,
           [sanitizedName]: output
         };
       } else {
-        // If output is not an object, store it with the sanitized node name as key
         return {
-          ...prev,
+          ...cleanedPrev,
           [sanitizedName]: output
         };
       }
     });
+    
+    // Update the node ID to name mapping
+    setNodeIdToName(prev => ({
+      ...prev,
+      [nodeId]: nodeName
+    }));
+  };
+
+  const removeNodeOutput = (nodeId: string) => {
+    const nodeName = nodeIdToNameRef.current[nodeId];
+    if (nodeName) {
+      const sanitizedName = sanitizeNodeName(nodeName);
+      setPreviousNodeOutputs(prev => {
+        const { [sanitizedName]: _, ...rest } = prev;
+        return rest;
+      });
+      
+      // Remove from the mapping
+      setNodeIdToName(prev => {
+        const { [nodeId]: _, ...rest } = prev;
+        return rest;
+      });
+    }
   };
 
   const clearNodeOutputs = () => {
     setPreviousNodeOutputs({});
+    setNodeIdToName({});
   };
 
   return (
@@ -92,6 +135,7 @@ export const WorkflowProvider: React.FC<WorkflowProviderProps> = ({ children }) 
       previousNodeOutputs,
       setPreviousNodeOutputs,
       addNodeOutput,
+      removeNodeOutput,
       clearNodeOutputs,
       validateNodeName,
       sanitizeNodeName

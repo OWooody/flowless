@@ -16,7 +16,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Condition');
   const { setNodes, getNodes } = useReactFlow();
-  const { validateNodeName } = useWorkflowContext();
+  const { validateNodeName, removeNodeOutput } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -41,6 +41,11 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
         return;
       }
 
+      // Remove the old node output if the name is changing
+      if (data.label && data.label !== editValue.trim()) {
+        removeNodeOutput(id);
+      }
+
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -49,7 +54,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
         )
       );
     }
-  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName]);
+  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName, removeNodeOutput]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
