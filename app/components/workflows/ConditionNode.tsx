@@ -41,7 +41,7 @@ function createConditionCompletions(previousNodeOutputs: Record<string, any> = {
       { label: '<=', type: 'operator', info: 'Less than or equal' },
       { label: '&&', type: 'operator', info: 'Logical AND' },
       { label: '||', type: 'operator', info: 'Logical OR' },
-      { label: '!', type: 'operator', info: 'Logical NOT' },
+      { label: '!', type: 'keyword', info: 'Logical NOT' },
     ];
 
     // JavaScript built-ins useful for conditions
@@ -66,8 +66,54 @@ function createConditionCompletions(previousNodeOutputs: Record<string, any> = {
 
     completions.push(...operators, ...jsBuiltIns);
 
+    // Add trigger data specifically if available
+    if (previousNodeOutputs.trigger) {
+      const trigger = previousNodeOutputs.trigger;
+      completions.push({
+        label: 'trigger',
+        type: 'variable',
+        info: 'Trigger data from workflow execution'
+      });
+      
+      // Add trigger properties
+      if (trigger.data) {
+        completions.push({
+          label: 'trigger.data',
+          type: 'property',
+          info: 'Input data that triggered the workflow'
+        });
+      }
+      
+      if (trigger.type) {
+        completions.push({
+          label: 'trigger.type',
+          type: 'property',
+          info: `Type of trigger: ${trigger.type}`
+        });
+      }
+      
+      if (trigger.timestamp) {
+        completions.push({
+          label: 'trigger.timestamp',
+          type: 'property',
+          info: 'When the workflow was triggered'
+        });
+      }
+      
+      if (trigger.testData) {
+        completions.push({
+          label: 'trigger.testData',
+          type: 'property',
+          info: 'Test data used to trigger the workflow'
+        });
+      }
+    }
+
     // Add previous node outputs by node name
     Object.entries(previousNodeOutputs).forEach(([nodeName, value]) => {
+      // Skip trigger as it's already handled above
+      if (nodeName === 'trigger') return;
+      
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         // For nested objects, add the node name as a variable
         completions.push({
@@ -404,6 +450,28 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
               </span>
             ))}
           </div>
+          {/* Show trigger data specifically */}
+          {previousNodeOutputs.trigger && (
+            <div className="mt-2 pt-2 border-t border-blue-200">
+              <div className="text-xs text-blue-700 font-medium mb-1">
+                🚀 Trigger data available:
+              </div>
+              <div className="text-xs text-blue-600 space-x-2">
+                <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                  trigger.data
+                </span>
+                <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                  trigger.type
+                </span>
+                <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                  trigger.timestamp
+                </span>
+                <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                  trigger.testData
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
       
@@ -517,6 +585,8 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
             <div>• Access data from previous nodes using their output variables</div>
             <div>• Use standard JavaScript operators: ===, !==, {'>'} , {'<'} , &&, ||</div>
             <div>• Check array properties: Array.isArray(), .length, .includes()</div>
+            <div>• Access trigger data: trigger.data, trigger.type, trigger.timestamp</div>
+            <div>• Example: trigger.data.userId === "123" && trigger.type === "manual"</div>
           </div>
         </div>
       </div>

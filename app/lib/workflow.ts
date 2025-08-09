@@ -134,7 +134,28 @@ class WorkflowService {
 
       // Step 2: Execute actions sequentially (removed trigger validation)
       const actionResults = [];
-      const workflowContext: any = { ...inputData }; // Start with input data
+      // Create workflow context with trigger data and input data
+      const workflowContext: any = { 
+        ...inputData,
+        trigger: {
+          type: (workflow.trigger as any)?.type || 'webhook',
+          eventType: (workflow.trigger as any)?.eventType || 'manual',
+          description: (workflow.trigger as any)?.description || '',
+          data: inputData, // Include the trigger input data
+          timestamp: new Date().toISOString(),
+          workflowId: workflowId,
+          workflowName: workflow.name
+        },
+        workflow: {
+          id: workflowId,
+          name: workflow.name,
+          description: workflow.description
+        },
+        execution: {
+          id: executionId,
+          startTime: new Date(startTime).toISOString()
+        }
+      };
       const loggedSteps: number[] = [1]; // Include step 1 since it's completed
       
       for (let i = 0; i < workflow.actions.length; i++) {
@@ -160,6 +181,12 @@ class WorkflowService {
           });
           
           // Add result to workflow context for subsequent actions
+          if (result && typeof result === 'object') {
+            workflowContext.previous = {
+              ...workflowContext.previous,
+              [action.type]: result
+            };
+          }
           
           await this.updateStep(executionId, stepOrder, 'completed', { 
             outputData: result,
@@ -204,29 +231,32 @@ class WorkflowService {
         await this.markRemainingStepsAsSkipped(executionId, loggedSteps);
       }
       
+      // Update execution with final results
       await this.updateExecution(executionId, finalStatus, executionResult);
+      
       return executionResult;
-
     } catch (error) {
-      const totalDurationMs = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Workflow execution failed:', error);
       
-      // Clean up any remaining running steps
-      await this.cleanupRunningSteps(executionId, 0);
+      // Log the error step
+      try {
+        await this.logStep(executionId, {
+          stepOrder: 1,
+          stepType: 'data_processing',
+          stepName: 'Workflow Execution Error',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          inputData: { workflowId, inputData }
+        });
+      } catch (logError) {
+        console.error('Failed to log error step:', logError);
+      }
       
+      // Update execution status to failed
       await this.updateExecution(executionId, 'failed', { 
-        success: false, 
-        error: errorMessage,
-        totalDurationMs
+        error: error instanceof Error ? error.message : 'Unknown error' 
       });
       
-      return {
-        success: false,
-        executionId,
-        actionResults: [],
-        error: errorMessage,
-        totalDurationMs
-      };
+      throw error;
     }
   }
 

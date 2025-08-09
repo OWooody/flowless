@@ -8,6 +8,7 @@ interface WorkflowContextType {
   addNodeOutput: (nodeId: string, nodeName: string, output: any) => void;
   removeNodeOutput: (nodeId: string, oldNodeName?: string) => void;
   clearNodeOutputs: () => void;
+  addTriggerData: (triggerData: any) => void;
   validateNodeName: (name: string, existingNames?: string[]) => { isValid: boolean; error?: string };
   sanitizeNodeName: (name: string) => string;
 }
@@ -130,6 +131,13 @@ export const WorkflowProvider: React.FC<WorkflowProviderProps> = ({ children }) 
     setNodeIdToName({});
   };
 
+  const addTriggerData = (triggerData: any) => {
+    setPreviousNodeOutputs(prev => ({
+      ...prev,
+      trigger: triggerData
+    }));
+  };
+
   return (
     <WorkflowContext.Provider value={{
       previousNodeOutputs,
@@ -137,6 +145,7 @@ export const WorkflowProvider: React.FC<WorkflowProviderProps> = ({ children }) 
       addNodeOutput,
       removeNodeOutput,
       clearNodeOutputs,
+      addTriggerData,
       validateNodeName,
       sanitizeNodeName
     }}>

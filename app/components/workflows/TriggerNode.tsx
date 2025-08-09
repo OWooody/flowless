@@ -2,6 +2,7 @@
 
 import { memo, useState, useCallback } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
+import { useWorkflowContext } from './WorkflowContext';
 
 interface TriggerNodeData {
   triggerType: string;
@@ -25,6 +26,7 @@ const TriggerNode = memo(({ data, selected, id, onWorkflowExecuted, onWorkflowSt
   const [jsonError, setJsonError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const { setNodes } = useReactFlow();
+  const { addTriggerData } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -94,7 +96,22 @@ const TriggerNode = memo(({ data, selected, id, onWorkflowExecuted, onWorkflowSt
   const runWorkflow = async (data: any) => {
     setIsRunning(true);
     onWorkflowStarted?.(); // Notify parent that workflow started
+    
     try {
+      // Add trigger data to the context for subsequent nodes to access
+      const triggerData = {
+        type: 'manual',
+        eventType: 'test_execution',
+        description: 'Manual workflow execution from trigger node',
+        data: data,
+        timestamp: new Date().toISOString(),
+        nodeId: id,
+        nodeLabel: data.label || 'Trigger',
+        testData: data
+      };
+      
+      addTriggerData(triggerData);
+      
       // Get the workflow ID from the URL or context
       const urlParams = new URLSearchParams(window.location.search);
       const workflowId = urlParams.get('edit');
