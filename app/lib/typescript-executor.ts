@@ -147,19 +147,7 @@ export class TypeScriptExecutor {
           console.log('- utils:', utils);
           
           // Make previous node outputs available as individual variables
-          // Handle both sanitized names (for storage) and original names (for access)
-          ${Object.keys(previousOutputs).map(nodeName => {
-            // Create variables for both the sanitized name and the original name
-            const sanitizedName = nodeName.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-            const originalName = nodeName; // Keep the original name as well
-            
-            // Create variables for both names
-            return `
-            // Variable for sanitized name (as stored)
-            const ${sanitizedName} = previous['${nodeName}'];
-            // Variable for original name (as user expects)
-            const ${originalName} = previous['${nodeName}'];`;
-          }).join('\n          ')}
+          ${Object.keys(previousOutputs).map(nodeName => `const ${nodeName} = previous['${nodeName}'];`).join('\n          ')}
           
           ${code}
         } catch (error) {
