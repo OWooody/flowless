@@ -24,28 +24,21 @@ import ConditionNode from '../../components/workflows/ConditionNode';
 import TypeScriptNode from '../../components/workflows/TypeScriptNode';
 import PropertyPanel from '../../components/workflows/PropertyPanel';
 
-// Shimmer loader component for when nodes are being loaded
-const WorkflowShimmer = ({ isLoading, hasNodes }: { isLoading: boolean; hasNodes: boolean }) => (
+// Simple loader component for when nodes are being loaded
+const WorkflowLoader = ({ isLoading }: { isLoading: boolean }) => (
   <div className="absolute inset-0 z-40 pointer-events-none">
-    {/* Shimmer overlay */}
-    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+    {/* Loading overlay */}
+    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
     
-    {/* Shimmer content */}
+    {/* Loading content */}
     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-      <div className="flex items-center space-x-3 bg-white/95 backdrop-blur-sm rounded-xl px-6 py-3 shadow-lg border border-gray-200/50">
+      <div className="flex items-center space-x-3 bg-white rounded-xl px-6 py-3 shadow-lg border border-gray-200">
         {/* Spinning loader */}
         <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
         
         {/* Loading text */}
         <div className="text-sm font-medium text-gray-700">
           {isLoading ? 'Loading workflow...' : 'Preparing canvas...'}
-        </div>
-        
-        {/* Animated dots */}
-        <div className="flex space-x-1">
-          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></div>
-          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.4s' }}></div>
-          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.4s' }}></div>
         </div>
       </div>
     </div>
@@ -95,6 +88,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const lastSaveTime = useRef<number>(0);
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedWorkflow = useRef<boolean>(false);
 
   const onConnectStart = useCallback(
     (event: any, params: any) => {
@@ -198,30 +192,18 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     }
   }, [saveStatus]);
 
-  // Fit view when nodes are loaded and reactFlowInstance is available
-  useEffect(() => {
-    if (reactFlowInstance && nodes.length > 0) {
-      // Small delay to ensure nodes are rendered
-      const timer = setTimeout(() => {
-        reactFlowInstance.fitView({
-          padding: 0.2,
-          minZoom: 0.8,
-          maxZoom: 0.8
-        });
-      }, 200);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [reactFlowInstance, nodes]);
-
   const loadWorkflow = useCallback(async (workflowId: string) => {
+    console.log('loadWorkflow called with:', workflowId);
     setIsLoading(true);
+    
     try {
       const response = await fetch(`/api/workflows/${workflowId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch workflow');
       }
       const workflow = await response.json();
+      
+      console.log('Workflow data received:', workflow);
       
       setWorkflowName(workflow.name);
       setWorkflowDescription(workflow.description || '');
@@ -301,23 +283,34 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       // Set all nodes and edges at once when loading is complete
       setNodes(workflowNodes);
       setEdges(workflowEdges);
+      
+      console.log('Workflow loading completed');
     } catch (error) {
       console.error('Error loading workflow:', error);
       alert('Failed to load workflow');
     } finally {
+      console.log('Setting isLoading to false');
       setIsLoading(false);
     }
   }, []);
 
   // Load existing workflow for editing or create new workflow
   useEffect(() => {
-    if (editWorkflowId) {
+    // Reset the flag when editWorkflowId changes
+    hasLoadedWorkflow.current = false;
+    
+    if (editWorkflowId && !hasLoadedWorkflow.current) {
       console.log('Loading workflow with ID:', editWorkflowId);
+      hasLoadedWorkflow.current = true;
+      setIsLoading(true);
       loadWorkflow(editWorkflowId);
-    } else {
+    } else if (!editWorkflowId && !hasLoadedWorkflow.current) {
       // For new workflows, add the default trigger node
       console.log('Creating new workflow with default trigger');
+      hasLoadedWorkflow.current = true;
+      setIsLoading(true);
       setNodes([defaultTriggerNode]);
+      setIsLoading(false);
     }
   }, [editWorkflowId, loadWorkflow]);
 
@@ -743,7 +736,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
           {/* React Flow Canvas */}
           <div className="w-full h-full" ref={reactFlowWrapper}>
-            {(isLoading || nodes.length === 0) && <WorkflowShimmer isLoading={isLoading} hasNodes={nodes.length > 0} />}
+            {isLoading && <WorkflowLoader isLoading={isLoading} />}
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -758,7 +751,6 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
               onDrop={onDrop}
               onInit={setReactFlowInstance}
               nodeTypes={nodeTypes}
-              fitView
             >
               <Background />
               <Controls />
