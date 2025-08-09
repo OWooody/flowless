@@ -22,7 +22,6 @@ import TriggerNode from '../../components/workflows/TriggerNode';
 import ActionNode from '../../components/workflows/ActionNode';
 import ConditionNode from '../../components/workflows/ConditionNode';
 import TypeScriptNode from '../../components/workflows/TypeScriptNode';
-import PropertyPanel from '../../components/workflows/PropertyPanel';
 import { WorkflowProvider } from '../../components/workflows/WorkflowContext';
 
 // Simple loader component for when nodes are being loaded
@@ -75,7 +74,6 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [workflowDescription, setWorkflowDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -138,11 +136,11 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   );
 
   const onNodeClick = useCallback((event: any, node: Node) => {
-    setSelectedNode(node);
+    // Node click handling removed - properties will be edited directly in nodes
   }, []);
 
   const onPaneClick = useCallback(() => {
-    setSelectedNode(null);
+    // Pane click handling removed - no need to deselect nodes
   }, []);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -527,7 +525,6 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     if (confirm('Are you sure you want to clear the canvas? This will remove all nodes and connections.')) {
       setNodes([defaultTriggerNode]);
       setEdges([]);
-      setSelectedNode(null);
       setSaveStatus('unsaved'); // Clear save status when canvas is cleared
     }
   };
@@ -757,8 +754,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
           </div>
         </div>
 
-        {/* Property Panel */}
-        <PropertyPanel selectedNode={selectedNode} />
+
       </div>
 
 
