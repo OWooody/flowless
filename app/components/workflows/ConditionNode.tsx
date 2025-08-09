@@ -12,7 +12,6 @@ interface ConditionBranch {
   type: 'if' | 'elseIf' | 'else';
   condition?: string;
   label: string;
-  isActive: boolean;
 }
 
 interface ConditionNodeData {
@@ -30,8 +29,8 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
 
   // Initialize default branches if none exist
   const branches = data.branches || [
-    { id: 'if-1', type: 'if', condition: 'return true;', label: 'If', isActive: true },
-    { id: 'else-1', type: 'else', condition: undefined, label: 'Else', isActive: false }
+    { id: 'if-1', type: 'if', condition: 'return true;', label: 'If' },
+    { id: 'else-1', type: 'else', condition: undefined, label: 'Else' }
   ];
 
   const handleDoubleClick = useCallback(() => {
@@ -103,9 +102,12 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
       id: `elseIf-${Date.now()}`,
       type: 'elseIf',
       condition: 'return false;',
-      label: 'Else If',
-      isActive: false
+      label: 'Else If'
     };
+
+    // Find the index of the else branch to insert above it
+    const elseIndex = branches.findIndex(branch => branch.type === 'else');
+    const insertIndex = elseIndex !== -1 ? elseIndex : branches.length;
 
     setNodes((nodes) =>
       nodes.map((node) =>
@@ -114,7 +116,11 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
               ...node,
               data: {
                 ...node.data,
-                branches: [...branches, newBranch]
+                branches: [
+                  ...branches.slice(0, insertIndex),
+                  newBranch,
+                  ...branches.slice(insertIndex)
+                ]
               }
             }
           : node
@@ -140,68 +146,13 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
     );
   }, [id, setNodes, branches]);
 
-  const toggleBranchActive = useCallback((branchId: string) => {
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                branches: branches.map(branch =>
-                  branch.id === branchId
-                    ? { ...branch, isActive: !branch.isActive }
-                    : branch
-                )
-              }
-            }
-          : node
-      )
-    );
-  }, [id, setNodes, branches]);
-
-  const moveBranch = useCallback((branchId: string, direction: 'up' | 'down') => {
-    const currentIndex = branches.findIndex((b: any) => b.id === branchId);
-    if (currentIndex === -1) return;
-    
-    let newIndex;
-    if (direction === 'up' && currentIndex > 0) {
-      newIndex = currentIndex - 1;
-    } else if (direction === 'down' && currentIndex < branches.length - 1) {
-      newIndex = currentIndex + 1;
-    } else {
-      return;
-    }
-    
-    const newBranches = [...branches];
-    [newBranches[currentIndex], newBranches[newIndex]] = [newBranches[newIndex], newBranches[currentIndex]];
-    
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                branches: newBranches
-              }
-            }
-          : node
-      )
-    );
-  }, [id, setNodes, branches]);
-
   const getBranchIcon = (type: string) => {
     switch (type) {
-      case 'if': return '🔵';
-      case 'elseIf': return '🟡';
-      case 'else': return '🔴';
-      default: return '⚪';
+      case 'if': return 'If';
+      case 'elseIf': return 'Else If';
+      case 'else': return 'Else';
+      default: return '';
     }
-  };
-
-  const getBranchStatusColor = (isActive: boolean) => {
-    return isActive ? 'bg-green-500 border-green-400' : 'bg-gray-300 border-gray-400';
   };
 
   return (
@@ -251,60 +202,22 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
       <div className="p-4 space-y-3">
         {branches.map((branch, index) => (
           <div key={branch.id} className="relative">
-            {/* Branch Header */}
-            <div className="flex items-center mb-2">
-              <span className="text-sm mr-2">{getBranchIcon(branch.type)}</span>
-              <span className="text-sm font-medium text-gray-700">
-                {branch.type === 'elseIf' ? 'Else If' : branch.type === 'if' ? 'If' : 'Else'}
-              </span>
-              <span className="text-xs text-gray-500 ml-2">
-                #{index + 1}
-              </span>
-              <div className="ml-auto flex items-center space-x-2">
-                {/* Move Up/Down Buttons */}
-                {branches.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => moveBranch(branch.id, 'up')}
-                      disabled={index === 0}
-                      className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move up"
-                    >
-                      ⬆️
-                    </button>
-                    <button
-                      onClick={() => moveBranch(branch.id, 'down')}
-                      disabled={index === branches.length - 1}
-                      className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move down"
-                    >
-                      ⬇️
-                    </button>
-                  </>
-                )}
-                
-                <button
-                  onClick={() => toggleBranchActive(branch.id)}
-                  className={`w-4 h-4 rounded-full border-2 transition-colors ${getBranchStatusColor(branch.isActive)}`}
-                  title={branch.isActive ? 'Active' : 'Inactive'}
-                />
-                {branch.type !== 'if' && branches.length > 2 && (
-                  <button
-                    onClick={() => removeBranch(branch.id)}
-                    className="text-red-400 hover:text-red-600 transition-colors"
-                    title="Remove branch"
-                  >
-                    🗑️
-                  </button>
-                )}
-              </div>
-            </div>
-            
             {/* Branch Content */}
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               {branch.type !== 'else' ? (
                 <div>
-                  <div className="text-xs text-gray-600 mb-2 font-medium">Condition:</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-gray-600 font-medium">{getBranchIcon(branch.type)}:</div>
+                    {branch.type !== 'if' && branches.length > 2 && (
+                      <button
+                        onClick={() => removeBranch(branch.id)}
+                        className="text-red-400 hover:text-red-600 transition-colors text-sm"
+                        title="Remove branch"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                   <div className="bg-gray-900 rounded border border-gray-700">
                     <CodeMirror
                       value={branch.condition || 'return true;'}
@@ -339,7 +252,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
                 </div>
               ) : (
                 <div className="text-sm text-gray-600 bg-gray-100 p-3 rounded border border-gray-200">
-                  Default path (no condition)
+                  Else
                 </div>
               )}
               
