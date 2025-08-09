@@ -344,11 +344,22 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
         };
       }
 
+      // Generate unique label for the new node
+      const baseLabel = nodeData.label || nodeType.charAt(0).toUpperCase() + nodeType.slice(1);
+      let uniqueLabel = baseLabel;
+      let counter = 1;
+      
+      // Check if label already exists and append number if needed
+      while (nodes.some(node => node.data.label === uniqueLabel)) {
+        uniqueLabel = `${baseLabel}${counter}`;
+        counter++;
+      }
+
       const newNode: Node = {
         id: `${nodeType}-${Date.now()}`,
         type: nodeType,
         position,
-        data: nodeData || {},
+        data: { ...nodeData, label: uniqueLabel },
       };
 
       setNodes((nds) => nds.concat(newNode));
