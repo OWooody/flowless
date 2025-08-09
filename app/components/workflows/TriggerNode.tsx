@@ -9,11 +9,15 @@ interface TriggerNodeData {
   schedule?: string;
   description?: string;
   label?: string;
+  testData?: string;
 }
 
 const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Trigger');
+  const [testData, setTestData] = useState(data.testData || '');
+  const [isRunning, setIsRunning] = useState(false);
+  const [jsonError, setJsonError] = useState('');
   const { setNodes } = useReactFlow();
 
   const handleDoubleClick = useCallback(() => {
@@ -43,8 +47,93 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
     }
   }, [handleBlur, data.label]);
 
+  const handleTestDataChange = useCallback((value: string) => {
+    setTestData(value);
+    setJsonError('');
+    
+    // Update the node data
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, testData: value } }
+          : node
+      )
+    );
+  }, [id, setNodes]);
+
+  const validateAndRunWorkflow = useCallback(async () => {
+    if (!testData.trim()) {
+      // Use empty object as default
+      await runWorkflow({});
+      return;
+    }
+
+    try {
+      const parsedData = JSON.parse(testData);
+      setJsonError('');
+      await runWorkflow(parsedData);
+    } catch (error) {
+      // Try to handle as simple string/number
+      if (testData.trim().startsWith('"') && testData.trim().endsWith('"')) {
+        await runWorkflow(testData.trim());
+      } else if (testData.trim().startsWith('{') || testData.trim().startsWith('[')) {
+        setJsonError('Invalid JSON format. Check brackets, quotes, and commas.');
+      } else {
+        // Treat as simple string/number
+        await runWorkflow(testData);
+      }
+    }
+  }, [testData]);
+
+  const runWorkflow = async (data: any) => {
+    setIsRunning(true);
+    try {
+      // Get the workflow ID from the URL or context
+      const urlParams = new URLSearchParams(window.location.search);
+      const workflowId = urlParams.get('edit');
+      
+      if (!workflowId) {
+        alert('Please save the workflow first before running it.');
+        return;
+      }
+
+      const response = await fetch(`/api/workflows/${workflowId}/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ testData: data }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to run workflow');
+      }
+
+      const result = await response.json();
+      
+      // Show success message
+      const successMessage = `Workflow executed successfully!
+
+Execution ID: ${result.result.executionId}
+Duration: ${result.result.totalDurationMs || 'N/A'}ms
+Actions executed: ${result.result.actionResults?.length || 0}
+
+Check the execution history for detailed results.`;
+      
+      alert(successMessage);
+      
+    } catch (error) {
+      console.error('Error running workflow:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to run workflow';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
-    <div className={`bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-green-300' : 'border-green-400'} min-w-[200px]`}>
+    <div className={`bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow-lg border-2 ${selected ? 'border-green-300' : 'border-green-400'} min-w-[280px]`}>
       <Handle 
         type="source" 
         position={Position.Right} 
@@ -53,7 +142,7 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
       />
       
       <div className="p-4">
-        <div className="flex items-center mb-2">
+        <div className="flex items-center mb-3">
           <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -84,7 +173,7 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
           </div>
         </div>
         
-        <div className="bg-white bg-opacity-10 rounded p-2">
+        <div className="bg-white bg-opacity-10 rounded p-2 mb-3">
           <div className="text-xs space-y-1">
             <div className="font-medium">Type: {data.triggerType}</div>
             {data.webhookUrl && (
@@ -94,6 +183,45 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
               <div className="text-green-100">Schedule: {data.schedule}</div>
             )}
           </div>
+        </div>
+
+        {/* Test Data Section - Always Visible */}
+        <div className="bg-white bg-opacity-10 rounded p-3 space-y-3">
+          <div className="text-xs font-medium">Test Data</div>
+          
+          <div>
+            <textarea
+              value={testData}
+              onChange={(e) => handleTestDataChange(e.target.value)}
+              placeholder='{"userId": "123", "action": "login"}'
+              className="w-full h-20 p-2 text-xs text-gray-800 bg-white rounded border-0 focus:ring-2 focus:ring-green-300 resize-none"
+            />
+            {jsonError && (
+              <p className="text-red-200 text-xs mt-1">{jsonError}</p>
+            )}
+            <p className="text-xs text-green-100 mt-1">
+              Examples: {"{}"} (empty), "hello" (string), 42 (number)
+            </p>
+          </div>
+          
+          <button
+            onClick={validateAndRunWorkflow}
+            disabled={isRunning}
+            className={`w-full py-2 px-3 text-xs font-medium rounded transition-colors ${
+              isRunning 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-white text-green-600 hover:bg-green-50'
+            }`}
+          >
+            {isRunning ? (
+              <div className="flex items-center justify-center">
+                <div className="w-3 h-3 border border-green-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                Running...
+              </div>
+            ) : (
+              '▶ Run Workflow'
+            )}
+          </button>
         </div>
       </div>
     </div>

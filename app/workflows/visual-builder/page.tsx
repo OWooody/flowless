@@ -61,12 +61,13 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const defaultTriggerNode: Node = {
     id: 'trigger-1',
     type: 'trigger',
-    position: { x: 100, y: 200 },
+    position: { x: 100, y: 100 },
     data: {
       label: 'Trigger',
       triggerType: 'webhook',
       webhookUrl: '',
       schedule: '',
+      testData: '', // Add testData field for JSON input
     },
     draggable: false, // Make it non-draggable
     deletable: false, // Make it non-deletable
@@ -82,9 +83,6 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const [lastExecutionResult, setLastExecutionResult] = useState<any>(null);
   const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'unsaved'>('unsaved');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
-  const [showJsonInputModal, setShowJsonInputModal] = useState(false);
-  const [jsonInputValue, setJsonInputValue] = useState('');
-  const [jsonInputError, setJsonInputError] = useState('');
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const lastSaveTime = useRef<number>(0);
@@ -513,95 +511,10 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       return;
     }
 
-    // Show the JSON input modal instead of using prompt
-    setShowJsonInputModal(true);
-    setJsonInputValue('');
-    setJsonInputError('');
-  };
-
-  const handleRunWorkflowWithData = async () => {
-    if (!editWorkflowId) {
-      alert('Please save the workflow first before running it.');
-      return;
-    }
-
-    let parsedTestData;
-    
-    if (!jsonInputValue.trim()) {
-      // If no input, use empty object as default
-      parsedTestData = {};
-    } else {
-      try {
-        // Try to parse as JSON first
-        parsedTestData = JSON.parse(jsonInputValue);
-        setJsonInputError(''); // Clear any previous errors
-      } catch (jsonError: unknown) {
-        // If JSON parsing fails, try to handle common cases
-        try {
-          // Check if it's a simple string (wrap in quotes if needed)
-          if (jsonInputValue.trim().startsWith('"') && jsonInputValue.trim().endsWith('"')) {
-            parsedTestData = jsonInputValue.trim();
-            setJsonInputError(''); // Clear any previous errors
-          } else if (jsonInputValue.trim().startsWith('{') || jsonInputValue.trim().startsWith('[')) {
-            // It looks like JSON but has syntax errors - show helpful error
-            const errorMessage = jsonError instanceof Error ? jsonError.message : 'Unknown JSON parsing error';
-            setJsonInputError(`JSON syntax error: ${errorMessage}`);
-            return; // Don't proceed with invalid JSON
-          } else {
-            // Treat as simple string
-            parsedTestData = jsonInputValue;
-            setJsonInputError(''); // Clear any previous errors
-          }
-        } catch (fallbackError) {
-          const errorMessage = jsonError instanceof Error ? jsonError.message : 'Unknown JSON parsing error';
-          setJsonInputError(`Invalid format: ${errorMessage}`);
-          return; // Don't proceed with invalid input
-        }
-      }
-    }
-
-    // If we get here, the data is valid - proceed with workflow execution
-    setIsRunning(true);
-    setLastExecutionResult(null); // Clear previous execution result
-    setShowJsonInputModal(false); // Close the modal
-    
-    try {
-      const response = await fetch(`/api/workflows/${editWorkflowId}/test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ testData: parsedTestData }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to run workflow');
-      }
-
-      const result = await response.json();
-      
-      // Store the execution result
-      setLastExecutionResult(result.result);
-      
-      // Show success message with execution details
-      const successMessage = `Workflow executed successfully!
-
-Execution ID: ${result.result.executionId}
-Duration: ${result.result.totalDurationMs || 'N/A'}ms
-Actions executed: ${result.result.actionResults?.length || 0}
-
-Check the execution history for detailed results.`;
-      
-      alert(successMessage);
-      
-    } catch (error) {
-      console.error('Error running workflow:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to run workflow';
-      alert(`Error: ${errorMessage}`);
-    } finally {
-      setIsRunning(false);
-    }
+    // The JSON input is now handled directly in the TriggerNode
+    // This function is kept for backward compatibility but the main functionality
+    // is now integrated into the trigger node itself
+    alert('Please use the "Run Workflow" button in the trigger node to test your workflow with custom data.');
   };
 
   const clearCanvas = () => {
@@ -839,49 +752,7 @@ Check the execution history for detailed results.`;
         </div>
 
         {/* JSON Input Modal */}
-        {showJsonInputModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-96 max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Enter Test Data</h3>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  JSON Data (or leave empty for default)
-                </label>
-                <textarea
-                  value={jsonInputValue}
-                  onChange={(e) => {
-                    setJsonInputValue(e.target.value);
-                    setJsonInputError(''); // Clear error when typing
-                  }}
-                  placeholder='{"userId": "123", "action": "login"}'
-                  className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {jsonInputError && (
-                  <p className="text-red-500 text-sm mt-1">{jsonInputError}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Examples: {"{}"} (empty object), "hello" (string), 42 (number), [1,2,3] (array)
-                </p>
-              </div>
-              
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowJsonInputModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRunWorkflowWithData}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                >
-                  Run Workflow
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* REMOVED */}
       </div>
     </div>
   );
