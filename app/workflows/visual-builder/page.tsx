@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect, Suspense } from 'react';
+import React, { useState, useCallback, useRef, useEffect, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ReactFlow, {
   Node,
@@ -45,13 +45,6 @@ const WorkflowLoader = ({ isLoading }: { isLoading: boolean }) => (
   </div>
 );
 
-const nodeTypes = {
-  trigger: TriggerNode,
-  condition: ConditionNode,
-  action: ActionNode,
-  typescript: TypeScriptNode,
-};
-
 const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | null }) => {
   const router = useRouter();
   
@@ -81,6 +74,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const [isLoading, setIsLoading] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [lastExecutionResult, setLastExecutionResult] = useState<any>(null);
+  const [workflowCompleted, setWorkflowCompleted] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'unsaved'>('unsaved');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -88,6 +82,23 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const lastSaveTime = useRef<number>(0);
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const hasLoadedWorkflow = useRef<boolean>(false);
+
+  // Define nodeTypes with callback for TriggerNode
+  const nodeTypes = useMemo(() => ({
+    trigger: (props: any) => <TriggerNode {...props} 
+      onWorkflowExecuted={(result) => {
+        // Just set running to false - no need to store execution result
+        setIsRunning(false);
+      }}
+      onWorkflowStarted={() => {
+        // Set running state when workflow starts
+        setIsRunning(true);
+      }}
+    />,
+    condition: ConditionNode,
+    action: ActionNode,
+    typescript: TypeScriptNode,
+  }), []);
 
   // onConnectStart and onConnectEnd - REMOVED (no longer needed without node palette)
 
@@ -564,7 +575,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
           {/* Floating Execution Status */}
           {isRunning && (
-            <div className="absolute top-4 left-4 z-50 bg-white/90 backdrop-blur-sm border border-green-200 rounded-lg px-4 py-2 shadow-lg">
+            <div className="absolute top-4 right-4 z-50 bg-white/90 backdrop-blur-sm border border-green-200 rounded-lg px-4 py-2 shadow-lg">
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-sm text-green-700 font-medium">Executing workflow...</span>
@@ -572,30 +583,14 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
             </div>
           )}
 
-          {/* Floating Execution Result */}
-          {lastExecutionResult && !isRunning && (
-            <div className="absolute top-20 left-4 z-50 bg-white/90 backdrop-blur-sm border border-green-200 rounded-lg px-4 py-3 shadow-lg max-w-sm">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-green-700">Execution Complete</span>
-                  <button
-                    onClick={() => setLastExecutionResult(null)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="text-xs text-gray-600 space-y-1">
-                  <div>ID: {lastExecutionResult.executionId}</div>
-                  <div>Duration: {lastExecutionResult.totalDurationMs || 'N/A'}ms</div>
-                  <div>Actions: {lastExecutionResult.actionResults?.length || 0}</div>
-                </div>
-                <button
-                  onClick={() => router.push(`/workflows/${editWorkflowId}/executions`)}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white text-xs py-2 px-3 rounded transition-colors"
-                >
-                  View Execution History
-                </button>
+          {/* Success Toast Message */}
+          {!isRunning && (
+            <div className="absolute top-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-sm font-medium">Workflow executed successfully!</span>
               </div>
             </div>
           )}

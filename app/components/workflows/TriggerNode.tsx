@@ -12,12 +12,18 @@ interface TriggerNodeData {
   testData?: string;
 }
 
-const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) => {
+interface TriggerNodeProps extends NodeProps<TriggerNodeData> {
+  onWorkflowExecuted?: (result: any) => void;
+  onWorkflowStarted?: () => void;
+}
+
+const TriggerNode = memo(({ data, selected, id, onWorkflowExecuted, onWorkflowStarted }: TriggerNodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Trigger');
   const [testData, setTestData] = useState(data.testData || '');
   const [isRunning, setIsRunning] = useState(false);
   const [jsonError, setJsonError] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
   const { setNodes } = useReactFlow();
 
   const handleDoubleClick = useCallback(() => {
@@ -87,6 +93,7 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
 
   const runWorkflow = async (data: any) => {
     setIsRunning(true);
+    onWorkflowStarted?.(); // Notify parent that workflow started
     try {
       // Get the workflow ID from the URL or context
       const urlParams = new URLSearchParams(window.location.search);
@@ -112,8 +119,11 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
 
       const result = await response.json();
       
-      // Workflow executed successfully - no alert needed
+      // Workflow executed successfully - show success message
       console.log('Workflow executed successfully:', result);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000); // Hide after 3 seconds
+      onWorkflowExecuted?.(result); // Call the callback
       
     } catch (error) {
       console.error('Error running workflow:', error);
@@ -176,6 +186,18 @@ const TriggerNode = memo(({ data, selected, id }: NodeProps<TriggerNodeData>) =>
             )}
           </div>
         </div>
+
+        {/* Success Message */}
+        {showSuccess && (
+          <div className="bg-green-400 bg-opacity-20 border border-green-300 rounded p-2 mb-3">
+            <div className="flex items-center space-x-2">
+              <svg className="w-4 h-4 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-xs text-green-200 font-medium">Workflow executed successfully!</span>
+            </div>
+          </div>
+        )}
 
         {/* Test Data Section - Always Visible */}
         <div className="bg-white bg-opacity-10 rounded p-3 space-y-3">
