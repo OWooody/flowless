@@ -42,7 +42,13 @@ export type PersonalizationActionConfig = {
   };
 };
 
-export type ActionConfig = ConditionActionConfig | PersonalizationActionConfig;
+export type TypeScriptActionConfig = {
+  type: 'typescript';
+  code: string;
+  description?: string;
+};
+
+export type ActionConfig = ConditionActionConfig | PersonalizationActionConfig | TypeScriptActionConfig;
 
 export type WorkflowConfig = {
   id: string;
@@ -218,6 +224,8 @@ class WorkflowService {
         return this.executeConditionAction(action as ConditionActionConfig, inputData, workflowContext);
       case 'personalization':
         return this.executePersonalizationAction(action as PersonalizationActionConfig, inputData, workflowId, workflowContext);
+      case 'typescript':
+        return this.executeTypeScriptAction(action as TypeScriptActionConfig, inputData, workflowId, workflowContext);
       default:
         const actionType = (action as any).type;
         throw new Error(`Unknown action type: ${actionType}`);
@@ -364,6 +372,50 @@ class WorkflowService {
   }
 
   /**
+   * Execute TypeScript action
+   */
+  async executeTypeScriptAction(action: TypeScriptActionConfig, inputData: any, workflowId?: string, workflowContext?: any): Promise<any> {
+    try {
+      console.log('💻 Executing TypeScript action:', action);
+      
+      // Import the data resolution service
+      const { DataResolutionService } = await import('./data-resolution');
+
+      // Create data context for variable resolution
+      const dataContext = {
+        input: inputData,
+        execution: workflowContext?.execution || {},
+        workflow: workflowContext?.workflow || {},
+        context: workflowContext || {}
+      };
+
+      // Resolve the TypeScript code
+      const resolvedCode = DataResolutionService.resolveExpression(action.code, dataContext);
+      
+      if (!resolvedCode) {
+        throw new Error('Failed to resolve TypeScript code');
+      }
+
+             // Evaluate the TypeScript code
+       const result = await this.evaluateTypeScript(resolvedCode, inputData, workflowContext);
+      
+      console.log('✅ TypeScript action completed:', result);
+      
+      return {
+        success: true,
+        result,
+        description: action.description
+      };
+    } catch (error) {
+      console.error('❌ Error executing TypeScript action:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
    * Evaluate a condition expression.
    * This is a placeholder for actual condition evaluation logic.
    * In a real application, you would parse and evaluate the expression
@@ -384,6 +436,43 @@ class WorkflowService {
     // that can handle operators, functions, and nested properties.
     // This is a simplified example.
     return false;
+  }
+
+  /**
+   * Evaluate TypeScript code using the TypeScriptExecutor for safe execution
+   */
+  private async evaluateTypeScript(code: string, inputData: any, workflowContext?: any): Promise<any> {
+    try {
+      // Import the TypeScript executor
+      const { TypeScriptExecutor } = await import('./typescript-executor');
+      
+      // Create execution context
+      const context = {
+        input: inputData,
+        workflow: workflowContext || {},
+        previous: workflowContext?.previous || {},
+        nodeId: 'typescript-action',
+        nodeType: 'typescript',
+        console: {
+          log: console.log,
+          error: console.error,
+          warn: console.warn,
+        },
+      };
+      
+      // Execute the code safely
+      const executor = new TypeScriptExecutor();
+      const result = await executor.execute(code, context);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'TypeScript execution failed');
+      }
+      
+      return result.output;
+    } catch (error) {
+      console.error('❌ Error evaluating TypeScript code:', error);
+      throw new Error(`TypeScript execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
 
