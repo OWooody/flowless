@@ -135,7 +135,7 @@ class WorkflowService {
       // Step 2: Execute actions sequentially (removed trigger validation)
       const actionResults = [];
       const workflowContext: any = { ...inputData }; // Start with input data
-      const loggedSteps: number[] = [];
+      const loggedSteps: number[] = [1]; // Include step 1 since it's completed
       
       for (let i = 0; i < workflow.actions.length; i++) {
         const action = workflow.actions[i] as ActionConfig;
@@ -674,15 +674,17 @@ class WorkflowService {
    */
   private async markRemainingStepsAsSkipped(executionId: string, loggedStepOrders: number[]) {
     try {
-      const maxStepOrder = await prisma.workflowStep.findFirst({
+      // Get all steps for this execution to check their current status
+      const allSteps = await prisma.workflowStep.findMany({
         where: { executionId },
-        orderBy: { stepOrder: 'desc' }
+        orderBy: { stepOrder: 'asc' }
       });
-      const maxOrder = maxStepOrder ? maxStepOrder.stepOrder : 0;
 
-      for (let i = 1; i <= maxOrder; i++) {
-        if (!loggedStepOrders.includes(i)) {
-          await this.updateStep(executionId, i, 'skipped', {
+              // Only mark steps as skipped if they are not already completed/failed and not in loggedStepOrders
+        for (const step of allSteps) {
+          if (!loggedStepOrders.includes(step.stepOrder) && 
+              (step.status === 'running' || step.status === 'pending')) {
+          await this.updateStep(executionId, step.stepOrder, 'skipped', {
             errorMessage: 'Workflow completed successfully, marking remaining steps as skipped'
           });
         }
