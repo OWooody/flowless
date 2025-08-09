@@ -100,6 +100,23 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const { setNodes, getNodes } = useReactFlow();
   const { previousNodeOutputs, addNodeOutput, validateNodeName, removeNodeOutput } = useWorkflowContext();
 
+  // Function to check if code has a return statement
+  const hasReturnStatement = useCallback((code: string) => {
+    if (!code.trim()) return false;
+    
+    // Remove comments and strings to avoid false positives
+    const cleanCode = code
+      .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
+      .replace(/\/\/.*$/gm, '') // Remove line comments
+      .replace(/"[^"]*"/g, '""') // Replace string content with empty strings
+      .replace(/'[^']*'/g, "''") // Replace string content with empty strings
+      .replace(/`[^`]*`/g, '``'); // Replace template literal content with empty strings
+    
+    // Check for return statements (including return in arrow functions)
+    const returnRegex = /\breturn\b/;
+    return returnRegex.test(cleanCode);
+  }, []);
+
   // Function to expand all nodes in JSON tree
   const expandAll = useCallback(() => {
     if (runResult?.output) {
@@ -329,10 +346,27 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
               <div className="text-xs space-y-1">
                 {runResult.success ? (
                   <div className="text-green-700">
-                    {runResult.output && (
+                    {runResult.output !== undefined ? (
                       <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-32">
                         {JSON.stringify(runResult.output, null, 2)}
                       </pre>
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                        <div className="flex items-center space-x-2 text-yellow-800">
+                          <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          <div>
+                            <div className="font-medium">No output returned</div>
+                            <div className="text-xs text-yellow-700 mt-1">
+                              {hasReturnStatement(codeValue) 
+                                ? "Your code executed successfully but didn't return a value. Check your return statement."
+                                : "Your code is missing a return statement. Add 'return' to output data for the next node."
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -343,7 +377,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
               </div>
             ) : (
               <div className="text-xs">
-                {runResult.success && runResult.output ? (
+                {runResult.success && runResult.output !== undefined ? (
                   <div>
                     {/* JSON Tree Controls */}
                     <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
@@ -412,6 +446,23 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
                     {/* JSON Tree */}
                     <div className="max-h-48 overflow-auto">
                       <JSONTree data={runResult.output} expanded={jsonTreeExpanded} setExpanded={setJsonTreeExpanded} />
+                    </div>
+                  </div>
+                ) : runResult.success ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                    <div className="flex items-center space-x-2 text-yellow-800">
+                      <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <div className="font-medium">No output returned</div>
+                        <div className="text-xs text-yellow-700 mt-1">
+                          {hasReturnStatement(codeValue) 
+                            ? "Your code executed successfully but didn't return a value. Check your return statement."
+                            : "Your code is missing a return statement. Add 'return' to output data for the next node."
+                          }
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (

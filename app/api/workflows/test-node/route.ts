@@ -17,6 +17,11 @@ export async function POST(req: NextRequest) {
         input: { message: "Test input data" },
         workflow: {},
         previous: previousOutputs, // This contains all previous node outputs
+        console: {
+          log: console.log,
+          error: console.error,
+          warn: console.warn,
+        },
       };
 
       const result = await executor.execute(nodeData.code || '', context);
@@ -63,6 +68,11 @@ export async function POST(req: NextRequest) {
             input: { message: "Test input data" },
             workflow: {},
             previous: previousOutputs,
+            console: {
+              log: console.log,
+              error: console.error,
+              warn: console.warn,
+            },
           };
           
           // Create a safe execution environment

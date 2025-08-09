@@ -447,10 +447,15 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   }, [value, editorView]);
 
   return (
-    <div 
-      ref={editorRef} 
-      className={`bg-gray-900 rounded-b-md border border-gray-300 border-t-0 overflow-hidden shadow-lg ${className}`}
-    />
+    <div className={`${className}`}>
+      <div 
+        ref={editorRef} 
+        className="bg-gray-900 rounded-b-md border border-gray-300 border-t-0 overflow-hidden shadow-lg"
+      />
+      <div className="bg-gray-50 border border-gray-300 border-t-0 px-3 py-2 text-xs text-gray-600">
+        💡 <strong>Tip:</strong> Remember to use <code className="bg-gray-200 px-1 rounded">return</code> to output data for the next node
+      </div>
+    </div>
   );
 };
 
