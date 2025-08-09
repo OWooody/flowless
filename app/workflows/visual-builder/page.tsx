@@ -23,6 +23,7 @@ import ActionNode from '../../components/workflows/ActionNode';
 import ConditionNode from '../../components/workflows/ConditionNode';
 import TypeScriptNode from '../../components/workflows/TypeScriptNode';
 import PropertyPanel from '../../components/workflows/PropertyPanel';
+import { WorkflowProvider } from '../../components/workflows/WorkflowContext';
 
 // Simple loader component for when nodes are being loaded
 const WorkflowLoader = ({ isLoading }: { isLoading: boolean }) => (
@@ -780,9 +781,11 @@ const VisualWorkflowBuilderWithParams = () => {
 // Wrap with ReactFlowProvider and Suspense
 const VisualWorkflowBuilderWrapper = () => (
   <ReactFlowProvider>
-    <Suspense fallback={<div>Loading...</div>}>
-      <VisualWorkflowBuilderWithParams />
-    </Suspense>
+    <WorkflowProvider>
+      <Suspense fallback={<div>Loading...</div>}>
+        <VisualWorkflowBuilderWithParams />
+      </Suspense>
+    </WorkflowProvider>
   </ReactFlowProvider>
 );
 

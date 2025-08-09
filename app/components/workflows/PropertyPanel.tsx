@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useReactFlow, Node } from 'reactflow';
+import { useWorkflowContext } from './WorkflowContext';
 
 interface PropertyPanelProps {
   selectedNode: Node | null;
@@ -12,9 +13,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
   const [localNodeData, setLocalNodeData] = useState<any>({});
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
-  const [previousNodeOutputs, setPreviousNodeOutputs] = useState<any>({});
-
-
+  const { previousNodeOutputs, addNodeOutput, clearNodeOutputs } = useWorkflowContext();
 
   // Sync local state when selectedNode changes
   useEffect(() => {
@@ -22,8 +21,6 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
       setLocalNodeData(selectedNode.data || {});
     }
   }, [selectedNode]);
-
-
 
   if (!selectedNode) {
     return (
@@ -89,10 +86,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
       
       if (result.success) {
         // Store this node's output for future tests
-        setPreviousNodeOutputs((prev: any) => ({
-          ...prev,
-          [selectedNode?.id || '']: result.output
-        }));
+        addNodeOutput(selectedNode?.id || '', result.output);
       }
       
       setTestResult(result);
@@ -104,7 +98,7 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
   };
 
   const clearTestData = () => {
-    setPreviousNodeOutputs({});
+    clearNodeOutputs();
     setTestResult(null);
   };
 

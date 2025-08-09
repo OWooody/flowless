@@ -2,6 +2,8 @@
 
 import React, { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
+import CodeMirrorEditor from './CodeMirrorEditor';
+import { useWorkflowContext } from './WorkflowContext';
 
 const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -10,7 +12,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const [isRunning, setIsRunning] = useState(false);
   const [runResult, setRunResult] = useState<any>(null);
   const { setNodes } = useReactFlow();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { previousNodeOutputs, addNodeOutput } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -39,8 +41,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
     }
   }, [handleBlur, data.label]);
 
-  const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newCode = e.target.value;
+  const handleCodeChange = useCallback((newCode: string) => {
     setCodeValue(newCode);
     setNodes((nodes) =>
       nodes.map((node) =>
@@ -50,16 +51,6 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       )
     );
   }, [id, setNodes]);
-
-  const handleCodeBlur = useCallback(() => {
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? { ...node, data: { ...node.data, code: codeValue } }
-          : node
-      )
-    );
-  }, [codeValue, id, setNodes]);
 
   const handleRunCode = useCallback(async () => {
     if (!codeValue.trim()) return;
@@ -77,187 +68,118 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
           nodeId: id,
           nodeType: 'typescript',
           nodeData: { code: codeValue },
-          previousOutputs: {},
+          previousOutputs: previousNodeOutputs,
         }),
       });
 
       const result = await response.json();
+      
+      if (result.success) {
+        // Store this node's output for future tests
+        addNodeOutput(id, result.output);
+      }
+      
       setRunResult(result);
     } catch (error) {
       setRunResult({ success: false, error: 'Failed to run code' });
     } finally {
       setIsRunning(false);
     }
-  }, [codeValue, id]);
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [codeValue]);
-
-  // Handle scroll prevention when textarea is focused
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      // Prevent scroll from bubbling up to React Flow canvas
-      e.stopPropagation();
-    };
-
-    const handleFocus = () => {
-      textarea.addEventListener('wheel', handleWheel, { passive: false });
-    };
-
-    const handleBlur = () => {
-      textarea.removeEventListener('wheel', handleWheel);
-    };
-
-    textarea.addEventListener('focus', handleFocus);
-    textarea.addEventListener('blur', handleBlur);
-
-    return () => {
-      textarea.removeEventListener('focus', handleFocus);
-      textarea.removeEventListener('blur', handleBlur);
-      textarea.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
+  }, [codeValue, id, previousNodeOutputs, addNodeOutput]);
 
   return (
-    <div className="relative">
-      <div 
-        className={`shadow-md rounded-md bg-gray-100 text-gray-800 border-2 transition-all duration-200 ${
-          selected ? 'border-gray-400' : 'border-gray-300'
-        } min-w-[400px]`}
-      >
-        {/* Node Header */}
-        <div className="bg-gray-100 px-4 py-2 rounded-t-md border border-gray-300 flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="rounded-full w-8 h-8 flex items-center justify-center bg-gray-200">
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-            </div>
-            <div className="ml-2 flex-1">
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  className="text-sm font-bold bg-transparent border-none outline-none focus:ring-0 w-full text-gray-800"
-                  autoFocus
-                />
-              ) : (
-                <div 
-                  className="text-sm font-bold cursor-pointer hover:bg-gray-200 px-1 py-0.5 rounded"
-                  onDoubleClick={handleDoubleClick}
-                  title="Double-click to edit name"
-                >
-                  {data.label || 'Code'}
-                </div>
-              )}
-              <div className="text-xs text-gray-500">JavaScript</div>
-            </div>
+    <div className={`bg-white border-2 rounded-lg shadow-lg ${selected ? 'border-blue-500' : 'border-gray-300'} min-w-[300px]`}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 bg-gray-50 border-b border-gray-300 rounded-t-lg">
+        <div className="flex items-center space-x-2">
+          <div className="w-6 h-6 bg-purple-500 rounded flex items-center justify-center">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRunCode();
-            }}
-            disabled={isRunning || !codeValue.trim()}
-            className="p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors"
-            title="Run code"
-          >
-            {isRunning ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-              </svg>
-            )}
-          </button>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="text-sm font-medium bg-transparent border-none outline-none focus:ring-0"
+              autoFocus
+            />
+          ) : (
+            <span
+              className="text-sm font-medium text-gray-700 cursor-pointer"
+              onDoubleClick={handleDoubleClick}
+            >
+              {data.label || 'Code'}
+            </span>
+          )}
         </div>
         
-        {/* Code Editor - always visible */}
-        <div className="bg-gray-900 rounded-b-md border border-gray-300 border-t-0 overflow-hidden shadow-lg">
-          <div className="relative">
-            <textarea
-              ref={textareaRef}
-              value={codeValue}
-              onChange={handleCodeChange}
-              onBlur={handleCodeBlur}
-              placeholder="// Your code here..."
-              className="w-full bg-gray-900 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0 overflow-y-auto"
-              style={{
-                fontFamily: 'monospace',
-                lineHeight: '1.5',
-                minHeight: '120px',
-                maxHeight: '300px',
-                overflowY: 'auto'
-              }}
-            />
-          </div>
-        </div>
-
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="w-3 h-3 bg-gray-500 border-2 border-white"
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="w-3 h-3 bg-gray-500 border-2 border-white"
-        />
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRunCode();
+          }}
+          disabled={isRunning || !codeValue.trim()}
+          className="p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors"
+          title="Run code"
+        >
+          {isRunning ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+            </svg>
+          )}
+        </button>
       </div>
+      
+      {/* Code Editor */}
+      <CodeMirrorEditor
+        value={codeValue}
+        onChange={handleCodeChange}
+        previousNodeOutputs={previousNodeOutputs}
+        placeholder="// Your code here..."
+        className="min-h-[120px]"
+      />
 
-      {/* Run Results - positioned outside and below the node */}
+      {/* Run Results */}
       {runResult && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-10">
-          <div className="bg-white rounded-md border border-gray-300 shadow-lg overflow-hidden">
-            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm font-medium text-gray-700">Results</span>
+        <div className={`border-t border-gray-300 p-3 ${
+          runResult.success 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="text-xs space-y-1">
+            {runResult.success ? (
+              <div className="text-green-700">
+                {runResult.output && (
+                  <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-32">
+                    {JSON.stringify(runResult.output, null, 2)}
+                  </pre>
+                )}
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setRunResult(null);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-3">
-              {runResult.success ? (
-                <div className="text-sm">
-                  {runResult.output && (
-                    <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-32">
-                      {JSON.stringify(runResult.output, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              ) : (
-                <div className="text-sm">
-                  <div className="font-medium text-gray-700 mb-2">❌ Error</div>
-                  <div className="text-gray-600">{runResult.error}</div>
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="text-red-700">
+                <div><strong>Error:</strong> {runResult.error}</div>
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="w-3 h-3 bg-gray-500 border-2 border-white"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="w-3 h-3 bg-gray-500 border-2 border-white"
+      />
     </div>
   );
 };
