@@ -29,7 +29,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
 
   // Initialize default branches if none exist
   const branches = data.branches || [
-    { id: 'if-1', type: 'if', condition: 'return true;', label: 'If' },
+    { id: 'if-1', type: 'if', condition: '', label: 'If' },
     { id: 'else-1', type: 'else', condition: undefined, label: 'Else' }
   ];
 
@@ -101,7 +101,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
     const newBranch: ConditionBranch = {
       id: `elseIf-${Date.now()}`,
       type: 'elseIf',
-      condition: 'return false;',
+      condition: '',
       label: 'Else If'
     };
 
@@ -220,7 +220,7 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
                   </div>
                   <div className="bg-gray-900 rounded border border-gray-700">
                     <CodeMirror
-                      value={branch.condition || 'return true;'}
+                      value={branch.condition || ''}
                       onChange={(value: string) => updateBranchCondition(branch.id, value)}
                       extensions={[javascript()]}
                       theme={oneDark}
