@@ -5,7 +5,6 @@ import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 
 const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Code');
   const [codeValue, setCodeValue] = useState(data.code || '');
   const [isRunning, setIsRunning] = useState(false);
@@ -39,12 +38,6 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       setEditValue(data.label || 'Code');
     }
   }, [handleBlur, data.label]);
-
-  const handleNodeClick = useCallback(() => {
-    if (!isEditing) {
-      setIsExpanded(!isExpanded);
-    }
-  }, [isEditing, isExpanded]);
 
   const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newCode = e.target.value;
@@ -99,100 +92,106 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
 
   // Auto-resize textarea
   useEffect(() => {
-    if (textareaRef.current && isExpanded) {
+    if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [codeValue, isExpanded]);
+  }, [codeValue]);
 
   return (
-    <div 
-      className={`shadow-md rounded-md bg-gray-100 text-gray-800 border-2 transition-all duration-200 ${
-        selected ? 'border-gray-400' : 'border-gray-300'
-      } ${isExpanded ? 'min-w-[400px]' : 'w-auto'}`}
-      onClick={handleNodeClick}
-    >
-      <div className="px-4 py-2">
-        <div className="flex items-center">
-          <div className="rounded-full w-8 h-8 flex items-center justify-center bg-gray-200">
-            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
+    <div className="relative">
+      <div 
+        className={`shadow-md rounded-md bg-gray-100 text-gray-800 border-2 transition-all duration-200 ${
+          selected ? 'border-gray-400' : 'border-gray-300'
+        } min-w-[400px]`}
+      >
+        {/* Node Header */}
+        <div className="bg-gray-100 px-4 py-2 rounded-t-md border border-gray-300 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="rounded-full w-8 h-8 flex items-center justify-center bg-gray-200">
+              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+            </div>
+            <div className="ml-2 flex-1">
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  className="text-sm font-bold bg-transparent border-none outline-none focus:ring-0 w-full text-gray-800"
+                  autoFocus
+                />
+              ) : (
+                <div 
+                  className="text-sm font-bold cursor-pointer hover:bg-gray-200 px-1 py-0.5 rounded"
+                  onDoubleClick={handleDoubleClick}
+                  title="Double-click to edit name"
+                >
+                  {data.label || 'Code'}
+                </div>
+              )}
+              <div className="text-xs text-gray-500">JavaScript</div>
+            </div>
           </div>
-          <div className="ml-2 flex-1">
-            {isEditing ? (
-              <input
-                type="text"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                className="text-sm font-bold bg-transparent border-none outline-none focus:ring-0 w-full text-gray-800"
-                autoFocus
-              />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRunCode();
+            }}
+            disabled={isRunning || !codeValue.trim()}
+            className="p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors"
+            title="Run code"
+          >
+            {isRunning ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <div 
-                className="text-sm font-bold cursor-pointer hover:bg-gray-200 px-1 py-0.5 rounded"
-                onDoubleClick={handleDoubleClick}
-                title="Double-click to edit name"
-              >
-                {data.label || 'Code'}
-              </div>
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+              </svg>
             )}
-            <div className="text-xs text-gray-500">Execute custom code</div>
+          </button>
+        </div>
+        
+        {/* Code Editor - always visible */}
+        <div className="bg-gray-900 rounded-b-md border border-gray-300 border-t-0 overflow-hidden shadow-lg">
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={codeValue}
+              onChange={handleCodeChange}
+              onBlur={handleCodeBlur}
+              placeholder="// Your code here..."
+              className="w-full bg-gray-900 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0"
+              style={{
+                fontFamily: 'monospace',
+                lineHeight: '1.5',
+                minHeight: '120px',
+                maxHeight: '300px'
+              }}
+            />
           </div>
         </div>
+
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="w-3 h-3 bg-gray-500 border-2 border-white"
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="w-3 h-3 bg-gray-500 border-2 border-white"
+        />
       </div>
 
-      {isExpanded && (
-        <div className="px-4 pb-4">
-          <div className="bg-gray-800 rounded-md border border-gray-600 overflow-hidden shadow-lg">
-            <div className="bg-gray-700 px-3 py-2 border-b border-gray-600 flex items-center justify-between">
-              <div className="text-xs text-gray-300 font-mono">JavaScript</div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRunCode();
-                }}
-                disabled={isRunning || !codeValue.trim()}
-                className="p-1.5 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-md transition-colors"
-                title="Run code"
-              >
-                {isRunning ? (
-                  <div className="w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-            <div className="relative">
-              <textarea
-                ref={textareaRef}
-                value={codeValue}
-                onChange={handleCodeChange}
-                onBlur={handleCodeBlur}
-                placeholder="// Your code here..."
-                className="w-full bg-gray-800 text-gray-100 p-3 text-sm font-mono resize-none border-none outline-none focus:ring-0"
-                style={{
-                  fontFamily: 'monospace',
-                  lineHeight: '1.5',
-                  minHeight: '120px',
-                  maxHeight: '300px'
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Run Results */}
+      {/* Run Results - positioned outside and below the node */}
       {runResult && (
-        <div className="px-4 pb-4">
-          <div className="bg-gray-200 rounded-md border border-gray-400 overflow-hidden">
-            <div className="bg-gray-300 px-3 py-2 border-b border-gray-400 flex items-center justify-between">
+        <div className="absolute top-full left-0 right-0 mt-2 z-10">
+          <div className="bg-white rounded-md border border-gray-300 shadow-lg overflow-hidden">
+            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -239,17 +238,6 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
           </div>
         </div>
       )}
-
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="w-3 h-3 bg-gray-500 border-2 border-white"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="w-3 h-3 bg-gray-500 border-2 border-white"
-      />
     </div>
   );
 };
