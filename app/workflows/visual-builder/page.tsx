@@ -24,6 +24,34 @@ import ConditionNode from '../../components/workflows/ConditionNode';
 import TypeScriptNode from '../../components/workflows/TypeScriptNode';
 import PropertyPanel from '../../components/workflows/PropertyPanel';
 
+// Shimmer loader component for when nodes are being loaded
+const WorkflowShimmer = ({ isLoading, hasNodes }: { isLoading: boolean; hasNodes: boolean }) => (
+  <div className="absolute inset-0 z-40 pointer-events-none">
+    {/* Shimmer overlay */}
+    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+    
+    {/* Shimmer content */}
+    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+      <div className="flex items-center space-x-3 bg-white/95 backdrop-blur-sm rounded-xl px-6 py-3 shadow-lg border border-gray-200/50">
+        {/* Spinning loader */}
+        <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        
+        {/* Loading text */}
+        <div className="text-sm font-medium text-gray-700">
+          {isLoading ? 'Loading workflow...' : 'Preparing canvas...'}
+        </div>
+        
+        {/* Animated dots */}
+        <div className="flex space-x-1">
+          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></div>
+          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.4s' }}></div>
+          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.4s' }}></div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const nodeTypes = {
   trigger: TriggerNode,
   condition: ConditionNode,
@@ -51,7 +79,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     deletable: false, // Make it non-deletable
   };
   
-  const [nodes, setNodes, onNodesChange] = useNodesState([defaultTriggerNode]);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
@@ -170,6 +198,22 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     }
   }, [saveStatus]);
 
+  // Fit view when nodes are loaded and reactFlowInstance is available
+  useEffect(() => {
+    if (reactFlowInstance && nodes.length > 0) {
+      // Small delay to ensure nodes are rendered
+      const timer = setTimeout(() => {
+        reactFlowInstance.fitView({
+          padding: 0.2,
+          minZoom: 0.8,
+          maxZoom: 0.8
+        });
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [reactFlowInstance, nodes]);
+
   const loadWorkflow = useCallback(async (workflowId: string) => {
     setIsLoading(true);
     try {
@@ -254,6 +298,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       console.log('WorkflowNodes to be set:', workflowNodes);
       console.log('WorkflowEdges to be set:', workflowEdges);
       
+      // Set all nodes and edges at once when loading is complete
       setNodes(workflowNodes);
       setEdges(workflowEdges);
     } catch (error) {
@@ -264,11 +309,15 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     }
   }, []);
 
-  // Load existing workflow for editing
+  // Load existing workflow for editing or create new workflow
   useEffect(() => {
     if (editWorkflowId) {
       console.log('Loading workflow with ID:', editWorkflowId);
       loadWorkflow(editWorkflowId);
+    } else {
+      // For new workflows, add the default trigger node
+      console.log('Creating new workflow with default trigger');
+      setNodes([defaultTriggerNode]);
     }
   }, [editWorkflowId, loadWorkflow]);
 
@@ -584,7 +633,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
                 </button>
                 
                 <button
-                  onClick={() => addNodeFromPalette('typescript', { label: 'Code', code: '// Your code here\nreturn input;' })}
+                  onClick={() => addNodeFromPalette('typescript', { label: 'Code', code: '' })}
                   className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-white transition-all duration-200 flex items-center space-x-2 shadow-sm"
                   title="Add Code Node"
                 >
@@ -678,7 +727,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
                 </button>
                 
                 <button
-                  onClick={() => addNodeFromPalette('typescript', { label: 'Code', code: '// Your code here\nreturn input;' }, connectionStart || undefined)}
+                  onClick={() => addNodeFromPalette('typescript', { label: 'Code', code: '' }, connectionStart || undefined)}
                   className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors flex items-center space-x-2"
                 >
                   <div className="w-6 h-6 bg-purple-500 rounded flex items-center justify-center">
@@ -694,6 +743,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
 
           {/* React Flow Canvas */}
           <div className="w-full h-full" ref={reactFlowWrapper}>
+            {(isLoading || nodes.length === 0) && <WorkflowShimmer isLoading={isLoading} hasNodes={nodes.length > 0} />}
             <ReactFlow
               nodes={nodes}
               edges={edges}

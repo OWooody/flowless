@@ -47,7 +47,7 @@ const nodeTemplates: NodeTemplate[] = [
     description: 'Execute custom TypeScript code',
     icon: '📝',
     data: {
-      code: '// Generic data processing example\nconsole.log("Input data:", input);\nconsole.log("Previous node output:", previous);\n\n// Process any type of data\nconst result = {\n  processed: true,\n  timestamp: new Date().toISOString(),\n  inputData: input,\n  previousData: previous || {},\n  // Add your custom processing logic here\n};\n\nconsole.log("Processing result:", result);\nreturn result;',
+      code: '',
       label: 'TypeScript Code',
     },
   },
