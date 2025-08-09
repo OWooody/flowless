@@ -2,20 +2,17 @@ import prisma from './prisma';
 
 // Type definitions for workflow system
 export type TriggerConfig = {
+  /**
+   * The event type that should trigger this workflow.
+   * This is now just a label/identifier for the workflow trigger.
+   * Examples: "user_signup", "button_click", "form_submit", "api_call"
+   */
   eventType: string;
-  filters: {
-    eventName?: string;
-    itemName?: string;
-    itemCategory?: string;
-    itemId?: string;
-    value?: number;
-    category?: string;
-  };
-  conditions?: {
-    operator: 'equals' | 'contains' | 'greater_than' | 'less_than';
-    field: string;
-    value: any;
-  }[];
+  
+  /**
+   * Optional description of what this trigger does
+   */
+  description?: string;
 };
 
 
@@ -74,7 +71,7 @@ export type WorkflowExecutionResult = {
 
 export type WorkflowStepData = {
   stepOrder: number;
-  stepType: 'trigger_validation' | 'action_execution' | 'data_processing';
+  stepType: 'action_execution' | 'data_processing';
   stepName: string;
   inputData?: any;
   outputData?: any;
@@ -114,50 +111,14 @@ class WorkflowService {
         } 
       });
 
-      // Step 2: Validate trigger conditions
-      await this.logStep(executionId, {
-        stepOrder: 2,
-        stepType: 'trigger_validation',
-        stepName: 'Validate Trigger Conditions',
-        inputData: { trigger: workflow.trigger, input: inputData }
-      });
-
-      const triggerValid = await this.validateTrigger(workflow.trigger as TriggerConfig, inputData);
-      
-      if (!triggerValid) {
-        await this.updateStep(executionId, 2, 'failed', { 
-          errorMessage: 'Trigger conditions not met' 
-        });
-        
-        // Clean up any remaining running steps
-        await this.cleanupRunningSteps(executionId, 2);
-        
-        await this.updateExecution(executionId, 'failed', { 
-          success: false, 
-          error: 'Trigger conditions not met',
-          totalDurationMs: Date.now() - startTime
-        });
-        return { 
-          success: false, 
-          executionId,
-          actionResults: [], 
-          error: 'Trigger conditions not met',
-          totalDurationMs: Date.now() - startTime
-        };
-      }
-
-      await this.updateStep(executionId, 2, 'completed', { 
-        outputData: { triggerValid: true } 
-      });
-
-      // Step 3: Execute actions sequentially
+      // Step 2: Execute actions sequentially (removed trigger validation)
       const actionResults = [];
       const workflowContext: any = { ...inputData }; // Start with input data
-      const loggedSteps: number[] = []; // Track which steps were logged
+      const loggedSteps: number[] = [];
       
       for (let i = 0; i < workflow.actions.length; i++) {
         const action = workflow.actions[i] as ActionConfig;
-        const stepOrder = 3 + i;
+        const stepOrder = 2 + i; // Adjusted step order since we removed trigger validation
         
         await this.logStep(executionId, {
           stepOrder,
@@ -246,71 +207,6 @@ class WorkflowService {
         totalDurationMs
       };
     }
-  }
-
-  /**
-   * Validate if a trigger should fire based on input data
-   */
-  async validateTrigger(trigger: TriggerConfig, input: any): Promise<boolean> {
-    // Check input type
-    if (trigger.eventType !== input.category) {
-      return false;
-    }
-
-    // Check filters
-    if (trigger.filters.eventName && input.name !== trigger.filters.eventName) {
-      return false;
-    }
-
-    if (trigger.filters.itemName && input.itemName !== trigger.filters.itemName) {
-      return false;
-    }
-
-    if (trigger.filters.itemCategory && input.itemCategory !== trigger.filters.itemCategory) {
-      return false;
-    }
-
-    if (trigger.filters.itemId && input.itemId !== trigger.filters.itemId) {
-      return false;
-    }
-
-    if (trigger.filters.value !== undefined && input.value !== trigger.filters.value) {
-      return false;
-    }
-
-    if (trigger.filters.category && input.category !== trigger.filters.category) {
-      return false;
-    }
-
-    // Check additional conditions
-    if (trigger.conditions) {
-      for (const condition of trigger.conditions) {
-        const fieldValue = this.getNestedValue(input, condition.field);
-        
-        switch (condition.operator) {
-          case 'equals':
-            if (fieldValue !== condition.value) return false;
-            break;
-          case 'contains':
-            if (typeof fieldValue === 'string' && !fieldValue.includes(condition.value)) {
-              return false;
-            }
-            break;
-          case 'greater_than':
-            if (typeof fieldValue === 'number' && fieldValue <= condition.value) {
-              return false;
-            }
-            break;
-          case 'less_than':
-            if (typeof fieldValue === 'number' && fieldValue >= condition.value) {
-              return false;
-            }
-            break;
-        }
-      }
-    }
-
-    return true;
   }
 
   /**
@@ -665,35 +561,29 @@ class WorkflowService {
 
   /**
    * Get workflows that match the given input
+   * Now generic - returns all active workflows without strict validation
    */
   async getMatchingWorkflows(input: string, data: any): Promise<WorkflowConfig[]> {
     try {
       const workflows = await prisma.workflow.findMany({
         where: {
           isActive: true,
-          trigger: {
-            path: ['eventType'],
-            equals: input
-          }
+          // Generic matching - just check if workflow is active
+          // No strict trigger validation needed for generic workflows
         }
       });
 
-      // Filter workflows based on trigger conditions and map to WorkflowConfig
-      const matchingWorkflows = workflows
-        .filter(workflow => {
-          const trigger = workflow.trigger as TriggerConfig;
-          return this.validateTrigger(trigger, data);
-        })
-        .map(workflow => ({
-          id: workflow.id,
-          name: workflow.name,
-          description: workflow.description || undefined,
-          trigger: workflow.trigger as TriggerConfig,
-          actions: workflow.actions as ActionConfig[],
-          isActive: workflow.isActive,
-          organizationId: workflow.organizationId || undefined,
-          userId: workflow.userId
-        }));
+      // Return all active workflows - let the workflow logic handle the filtering
+      const matchingWorkflows = workflows.map(workflow => ({
+        id: workflow.id,
+        name: workflow.name,
+        description: workflow.description || undefined,
+        trigger: workflow.trigger as TriggerConfig,
+        actions: workflow.actions as ActionConfig[],
+        isActive: workflow.isActive,
+        organizationId: workflow.organizationId || undefined,
+        userId: workflow.userId
+      }));
 
       return matchingWorkflows;
     } catch (error) {
