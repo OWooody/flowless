@@ -2,6 +2,7 @@
 
 import { memo, useState, useCallback } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
+import { useWorkflowContext } from './WorkflowContext';
 
 interface ActionNodeData {
   actionType: string;
@@ -19,7 +20,8 @@ interface ActionNodeData {
 const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Action');
-  const { setNodes } = useReactFlow();
+  const { setNodes, getNodes } = useReactFlow();
+  const { validateNodeName } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -29,6 +31,21 @@ const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
   const handleBlur = useCallback(() => {
     setIsEditing(false);
     if (editValue.trim() !== data.label) {
+      // Validate the node name before updating
+      const existingNames = getNodes()
+        .filter(node => node.id !== id)
+        .map(node => node.data.label || '')
+        .filter(Boolean);
+
+      const validation = validateNodeName(editValue.trim(), existingNames);
+      
+      if (!validation.isValid) {
+        // If validation fails, revert to the original name
+        setEditValue(data.label || 'Action');
+        alert(validation.error);
+        return;
+      }
+
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -37,7 +54,7 @@ const ActionNode = memo(({ data, selected, id }: NodeProps<ActionNodeData>) => {
         )
       );
     }
-  }, [editValue, data.label, id, setNodes]);
+  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

@@ -11,8 +11,8 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const [codeValue, setCodeValue] = useState(data.code || '');
   const [isRunning, setIsRunning] = useState(false);
   const [runResult, setRunResult] = useState<any>(null);
-  const { setNodes } = useReactFlow();
-  const { previousNodeOutputs, addNodeOutput } = useWorkflowContext();
+  const { setNodes, getNodes } = useReactFlow();
+  const { previousNodeOutputs, addNodeOutput, validateNodeName } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -22,6 +22,21 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
   const handleBlur = useCallback(() => {
     setIsEditing(false);
     if (editValue.trim() !== data.label) {
+      // Validate the node name before updating
+      const existingNames = getNodes()
+        .filter(node => node.id !== id)
+        .map(node => node.data.label || '')
+        .filter(Boolean);
+
+      const validation = validateNodeName(editValue.trim(), existingNames);
+      
+      if (!validation.isValid) {
+        // If validation fails, revert to the original name
+        setEditValue(data.label || 'Code');
+        alert(validation.error);
+        return;
+      }
+
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -30,7 +45,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
         )
       );
     }
-  }, [editValue, data.label, id, setNodes]);
+  }, [editValue, data.label, id, setNodes, getNodes, validateNodeName]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -75,8 +90,9 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       const result = await response.json();
       
       if (result.success) {
-        // Store this node's output for future tests
-        addNodeOutput(id, result.output);
+        // Store this node's output using the node name
+        const nodeName = data.label || 'Code';
+        addNodeOutput(id, nodeName, result.output);
       }
       
       setRunResult(result);
@@ -85,7 +101,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
     } finally {
       setIsRunning(false);
     }
-  }, [codeValue, id, previousNodeOutputs, addNodeOutput]);
+  }, [codeValue, id, previousNodeOutputs, addNodeOutput, data.label]);
 
   return (
     <div className={`bg-white border-2 rounded-lg shadow-lg ${selected ? 'border-blue-500' : 'border-gray-300'} min-w-[300px]`}>
@@ -106,6 +122,7 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
               onKeyDown={handleKeyDown}
               className="text-sm font-medium bg-transparent border-none outline-none focus:ring-0"
               autoFocus
+              placeholder="Code"
             />
           ) : (
             <span
@@ -173,15 +190,15 @@ const TypeScriptNode = ({ data, selected, id }: NodeProps) => {
       <Handle
         type="target"
         position={Position.Left}
-        className="w-3 h-3 bg-gray-500 border-2 border-white"
+        className="w-3 h-3 bg-gray-400"
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3 h-3 bg-gray-500 border-2 border-white"
+        className="w-3 h-3 bg-gray-400"
       />
     </div>
   );
 };
 
-export default memo(TypeScriptNode);
+export default TypeScriptNode;

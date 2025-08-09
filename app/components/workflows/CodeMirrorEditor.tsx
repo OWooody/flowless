@@ -41,37 +41,37 @@ function createNodeDataCompletions(previousNodeOutputs: Record<string, any> = {}
       { label: 'fetch', type: 'function', info: 'Fetch API for HTTP requests' }
     );
 
-    // Add previous node outputs directly (now stored without node ID prefix)
-    Object.entries(previousNodeOutputs).forEach(([key, value]) => {
+    // Add previous node outputs by node name (now stored with sanitized names)
+    Object.entries(previousNodeOutputs).forEach(([nodeName, value]) => {
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        // For nested objects, add the key as a variable
+        // For nested objects, add the node name as a variable
         completions.push({
-          label: key,
+          label: nodeName,
           type: 'variable',
-          info: `${key} from previous node output`
+          info: `${nodeName} from previous node output`
         });
         
         // Add nested properties
         Object.keys(value).forEach(nestedKey => {
           completions.push({
-            label: `${key}.${nestedKey}`,
+            label: `${nodeName}.${nestedKey}`,
             type: 'property',
-            info: `${nestedKey} from ${key}`
+            info: `${nestedKey} from ${nodeName}`
           });
         });
       } else if (Array.isArray(value)) {
-        // For arrays, add the key as a variable
+        // For arrays, add the node name as a variable
         completions.push({
-          label: key,
+          label: nodeName,
           type: 'variable',
-          info: `${key} (array) from previous node output`
+          info: `${nodeName} (array) from previous node output`
         });
       } else {
         // For simple values, add them directly
         completions.push({
-          label: key,
+          label: nodeName,
           type: 'variable',
-          info: `${key}: ${String(value)}`
+          info: `${nodeName}: ${String(value)}`
         });
       }
     });

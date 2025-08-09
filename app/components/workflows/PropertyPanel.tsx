@@ -85,8 +85,9 @@ export default function PropertyPanel({ selectedNode }: PropertyPanelProps) {
       const result = await response.json();
       
       if (result.success) {
-        // Store this node's output for future tests
-        addNodeOutput(selectedNode?.id || '', result.output);
+        // Store this node's output using the node name
+        const nodeName = selectedNode?.data?.label || selectedNode?.type || 'Node';
+        addNodeOutput(selectedNode?.id || '', nodeName, result.output);
       }
       
       setTestResult(result);
