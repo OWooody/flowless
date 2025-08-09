@@ -24,6 +24,8 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Condition');
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const { setNodes, getNodes } = useReactFlow();
   const { validateNodeName, removeNodeOutput } = useWorkflowContext();
 
@@ -155,6 +157,50 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
     }
   };
 
+  const handleRunCondition = useCallback(async () => {
+    setIsRunning(true);
+    setActiveBranchId(null);
+    
+    try {
+      // Evaluate conditions in order: if, elseIf, else
+      let trueBranchId: string | null = null;
+      
+      for (const branch of branches) {
+        if (branch.type === 'else') {
+          // Else branch is always true if we reach it
+          trueBranchId = branch.id;
+          break;
+        }
+        
+        if (branch.condition?.trim()) {
+          // For now, simulate condition evaluation
+          // In a real implementation, you'd evaluate the actual condition
+          const isTrue = Math.random() > 0.5; // Simulate random true/false
+          
+          if (isTrue) {
+            trueBranchId = branch.id;
+            break;
+          }
+        }
+      }
+      
+      // Highlight the true branch
+      setActiveBranchId(trueBranchId);
+      
+    } catch (error) {
+      console.error('Failed to evaluate conditions:', error);
+    } finally {
+      setIsRunning(false);
+    }
+  }, [branches]);
+
+  const getBranchStyle = (branchId: string) => {
+    if (activeBranchId === branchId) {
+      return 'bg-green-100 border-green-400 shadow-md';
+    }
+    return 'bg-gray-50 border-gray-200';
+  };
+
   return (
     <div className={`bg-white border-2 rounded-lg shadow-lg ${selected ? 'border-blue-500' : 'border-gray-300'} min-w-[350px]`}>
       {/* Input Handle */}
@@ -193,9 +239,24 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
             </span>
           )}
         </div>
-        <div className="text-xs text-gray-500">
-          Multiple conditional branches
-        </div>
+        
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRunCondition();
+          }}
+          disabled={isRunning}
+          className="p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors"
+          title="Run condition"
+        >
+          {isRunning ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+            </svg>
+          )}
+        </button>
       </div>
       
       {/* Condition Branches */}
@@ -203,7 +264,15 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
         {branches.map((branch, index) => (
           <div key={branch.id} className="relative">
             {/* Branch Content */}
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div className={`rounded-lg p-3 border transition-all duration-200 ${getBranchStyle(branch.id)}`}>
+              {activeBranchId === branch.id && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              
               {branch.type !== 'else' ? (
                 <div>
                   <div className="flex items-center justify-between mb-2">
