@@ -513,10 +513,10 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
             💡 Condition Examples:
           </div>
           <div className="text-xs text-gray-500 space-y-1">
-            <div>• <code className="bg-gray-200 px-1 rounded">user.age {'>'} 18</code> - Check if user is adult</div>
-            <div>• <code className="bg-gray-200 px-1 rounded">order.total {'>'} 100</code> - Check if order exceeds amount</div>
-            <div>• <code className="bg-gray-200 px-1 rounded">Array.isArray(products)</code> - Check if products is array</div>
-            <div>• <code className="bg-gray-200 px-1 rounded">status === 'active' && verified === true</code> - Multiple conditions</div>
+            <div>• Use JavaScript expressions to evaluate conditions</div>
+            <div>• Access data from previous nodes using their output variables</div>
+            <div>• Use standard JavaScript operators: ===, !==, {'>'} , {'<'} , &&, ||</div>
+            <div>• Check array properties: Array.isArray(), .length, .includes()</div>
           </div>
         </div>
       </div>

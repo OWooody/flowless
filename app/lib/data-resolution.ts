@@ -8,7 +8,7 @@
  */
 
 export interface DataContext {
-  event: any;
+  input: any;
   executionHistory?: any[];
   workflow?: any;
   workflowContext?: any;
@@ -31,7 +31,7 @@ export class DataResolutionService {
 
     // Handle different expression types
     if (expression.startsWith('event.')) {
-      return this.resolveEventPath(expression.substring(6), context.event);
+      return this.resolveInputPath(expression.substring(6), context.input);
     } else if (expression.startsWith('execution.')) {
       return this.resolveExecutionPath(expression.substring(10), context.executionHistory);
     } else if (expression.startsWith('workflow.')) {
@@ -52,12 +52,12 @@ export class DataResolutionService {
   }
 
   /**
-   * Resolve event data path (e.g., 'userPhone', 'user.name')
+   * Resolve input data path (e.g., 'userPhone', 'user.name')
    */
-  private static resolveEventPath(path: string, eventData: any): string | null {
-    if (!eventData) return null;
+  private static resolveInputPath(path: string, inputData: any): string | null {
+    if (!inputData) return null;
     
-    return this.getNestedValue(eventData, path);
+    return this.getNestedValue(inputData, path);
   }
 
   /**

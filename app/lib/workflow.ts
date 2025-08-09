@@ -84,11 +84,11 @@ export type WorkflowStepData = {
 
 class WorkflowService {
   /**
-   * Execute a workflow based on a trigger event
+   * Execute a workflow with input data
    */
-  async executeWorkflow(workflowId: string, triggerEvent: any): Promise<WorkflowExecutionResult> {
+  async executeWorkflow(workflowId: string, inputData: any): Promise<WorkflowExecutionResult> {
     const startTime = Date.now();
-    const executionId = await this.logExecution(workflowId, 'running', { triggerEvent });
+    const executionId = await this.logExecution(workflowId, 'running', { inputData });
     
     try {
       // Step 1: Get workflow configuration
@@ -119,10 +119,10 @@ class WorkflowService {
         stepOrder: 2,
         stepType: 'trigger_validation',
         stepName: 'Validate Trigger Conditions',
-        inputData: { trigger: workflow.trigger, event: triggerEvent }
+        inputData: { trigger: workflow.trigger, input: inputData }
       });
 
-      const triggerValid = await this.validateTrigger(workflow.trigger as TriggerConfig, triggerEvent);
+      const triggerValid = await this.validateTrigger(workflow.trigger as TriggerConfig, inputData);
       
       if (!triggerValid) {
         await this.updateStep(executionId, 2, 'failed', { 
@@ -148,7 +148,7 @@ class WorkflowService {
 
       // Step 3: Execute actions sequentially
       const actionResults = [];
-      const workflowContext: any = { ...triggerEvent }; // Start with trigger event data
+      const workflowContext: any = { ...inputData }; // Start with input data
       
       for (let i = 0; i < workflow.actions.length; i++) {
         const action = workflow.actions[i] as ActionConfig;
@@ -158,11 +158,11 @@ class WorkflowService {
           stepOrder,
           stepType: 'action_execution',
           stepName: `Execute Action ${i + 1}: ${action.type}`,
-          inputData: { action, eventData: triggerEvent, context: workflowContext }
+          inputData: { action, inputData: inputData, context: workflowContext }
         });
         
         try {
-          const result = await this.executeAction(action, workflowContext, workflowId, workflowContext);
+          const result = await this.executeAction(action, inputData, workflowId, workflowContext);
           actionResults.push({
             actionIndex: i,
             actionType: action.type,
@@ -229,43 +229,43 @@ class WorkflowService {
   }
 
   /**
-   * Validate if a trigger should fire based on event data
+   * Validate if a trigger should fire based on input data
    */
-  async validateTrigger(trigger: TriggerConfig, event: any): Promise<boolean> {
-    // Check event type
-    if (trigger.eventType !== event.category) {
+  async validateTrigger(trigger: TriggerConfig, input: any): Promise<boolean> {
+    // Check input type
+    if (trigger.eventType !== input.category) {
       return false;
     }
 
     // Check filters
-    if (trigger.filters.eventName && event.name !== trigger.filters.eventName) {
+    if (trigger.filters.eventName && input.name !== trigger.filters.eventName) {
       return false;
     }
 
-    if (trigger.filters.itemName && event.itemName !== trigger.filters.itemName) {
+    if (trigger.filters.itemName && input.itemName !== trigger.filters.itemName) {
       return false;
     }
 
-    if (trigger.filters.itemCategory && event.itemCategory !== trigger.filters.itemCategory) {
+    if (trigger.filters.itemCategory && input.itemCategory !== trigger.filters.itemCategory) {
       return false;
     }
 
-    if (trigger.filters.itemId && event.itemId !== trigger.filters.itemId) {
+    if (trigger.filters.itemId && input.itemId !== trigger.filters.itemId) {
       return false;
     }
 
-    if (trigger.filters.value !== undefined && event.value !== trigger.filters.value) {
+    if (trigger.filters.value !== undefined && input.value !== trigger.filters.value) {
       return false;
     }
 
-    if (trigger.filters.category && event.category !== trigger.filters.category) {
+    if (trigger.filters.category && input.category !== trigger.filters.category) {
       return false;
     }
 
     // Check additional conditions
     if (trigger.conditions) {
       for (const condition of trigger.conditions) {
-        const fieldValue = this.getNestedValue(event, condition.field);
+        const fieldValue = this.getNestedValue(input, condition.field);
         
         switch (condition.operator) {
           case 'equals':
@@ -296,12 +296,12 @@ class WorkflowService {
   /**
    * Execute a single action
    */
-  async executeAction(action: ActionConfig, eventData: any, workflowId?: string, workflowContext?: any): Promise<any> {
+  async executeAction(action: ActionConfig, inputData: any, workflowId?: string, workflowContext?: any): Promise<any> {
     switch (action.type) {
-      case 'personalization':
-        return this.executePersonalizationAction(action as PersonalizationActionConfig, eventData, workflowId, workflowContext);
       case 'condition':
-        return this.executeConditionAction(action as ConditionActionConfig, eventData, workflowContext);
+        return this.executeConditionAction(action as ConditionActionConfig, inputData, workflowContext);
+      case 'personalization':
+        return this.executePersonalizationAction(action as PersonalizationActionConfig, inputData, workflowId, workflowContext);
       default:
         const actionType = (action as any).type;
         throw new Error(`Unknown action type: ${actionType}`);
@@ -317,7 +317,7 @@ class WorkflowService {
   /**
    * Execute personalization action
    */
-  async executePersonalizationAction(action: PersonalizationActionConfig, eventData: any, workflowId?: string, workflowContext?: any): Promise<any> {
+  async executePersonalizationAction(action: PersonalizationActionConfig, inputData: any, workflowId?: string, workflowContext?: any): Promise<any> {
     try {
       console.log('🎯 Executing personalization action:', action);
       
@@ -326,7 +326,7 @@ class WorkflowService {
 
       // Create data context for variable resolution
       const dataContext = {
-        event: eventData,
+        input: inputData,
         execution: workflowContext?.execution || {},
         workflow: workflowContext?.workflow || {},
         context: workflowContext || {}
@@ -420,29 +420,66 @@ class WorkflowService {
   /**
    * Execute condition action
    */
-  async executeConditionAction(action: ConditionActionConfig, eventData: any, workflowContext?: any): Promise<any> {
+  async executeConditionAction(action: ConditionActionConfig, inputData: any, workflowContext?: any): Promise<any> {
     try {
-      // Create execution context with available variables
-      const context = {
-        event: eventData,
-        workflow: workflowContext,
-        execution: []
-      };
+      console.log('🔍 Executing condition action:', action);
       
-      // Safely execute the user's condition code
-      const result = new Function('event', 'workflow', 'execution', 
-        `return (function() { ${action.condition} })();`
-      )(context.event, context.workflow, context.execution);
+      // Import the data resolution service
+      const { DataResolutionService } = await import('./data-resolution');
+
+      // Create data context for variable resolution
+      const dataContext = {
+        input: inputData,
+        execution: workflowContext?.execution || {},
+        workflow: workflowContext?.workflow || {},
+        context: workflowContext || {}
+      };
+
+      // Resolve the condition expression
+      const resolvedCondition = DataResolutionService.resolveExpression(action.condition, dataContext);
+      
+      if (!resolvedCondition) {
+        throw new Error('Failed to resolve condition expression');
+      }
+
+      // Evaluate the condition
+      const result = this.evaluateCondition(resolvedCondition, inputData, workflowContext);
+      
+      console.log('✅ Condition evaluation result:', result);
       
       return {
         condition: action.condition,
-        result: Boolean(result),
-        context: context,
+        resolvedCondition,
+        result,
         description: action.description
       };
     } catch (error) {
-      throw new Error(`Condition evaluation failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('❌ Error executing condition action:', error);
+      throw error;
     }
+  }
+
+  /**
+   * Evaluate a condition expression.
+   * This is a placeholder for actual condition evaluation logic.
+   * In a real application, you would parse and evaluate the expression
+   * based on the resolvedCondition and inputData.
+   */
+  private evaluateCondition(expression: any, inputData: any, workflowContext?: any): boolean {
+    // Example: Simple string comparison for demonstration
+    if (typeof expression === 'string') {
+      const resolvedValue = this.getNestedValue(inputData, expression);
+      if (typeof resolvedValue === 'string') {
+        return resolvedValue.toLowerCase() === 'true';
+      }
+      return Boolean(resolvedValue);
+    }
+
+    // More complex evaluation logic would go here
+    // For example, using a library like `eval` or a dedicated parser
+    // that can handle operators, functions, and nested properties.
+    // This is a simplified example.
+    return false;
   }
 
 
@@ -543,26 +580,42 @@ class WorkflowService {
   }
 
   /**
-   * Get workflows that should be triggered by an event
+   * Get workflows that match the given input
    */
-  async getMatchingWorkflows(event: string, data: any): Promise<WorkflowConfig[]> {
-    const workflows = await prisma.workflow.findMany({
-      where: {
-        isActive: true,
-        organizationId: data.organizationId || null
-      }
-    });
+  async getMatchingWorkflows(input: string, data: any): Promise<WorkflowConfig[]> {
+    try {
+      const workflows = await prisma.workflow.findMany({
+        where: {
+          isActive: true,
+          trigger: {
+            path: ['eventType'],
+            equals: input
+          }
+        }
+      });
 
-    const matchingWorkflows: WorkflowConfig[] = [];
-    
-    for (const workflow of workflows) {
-      const triggerValid = await this.validateTrigger(workflow.trigger as TriggerConfig, data);
-      if (triggerValid) {
-        matchingWorkflows.push(workflow as unknown as WorkflowConfig);
-      }
+      // Filter workflows based on trigger conditions and map to WorkflowConfig
+      const matchingWorkflows = workflows
+        .filter(workflow => {
+          const trigger = workflow.trigger as TriggerConfig;
+          return this.validateTrigger(trigger, data);
+        })
+        .map(workflow => ({
+          id: workflow.id,
+          name: workflow.name,
+          description: workflow.description || undefined,
+          trigger: workflow.trigger as TriggerConfig,
+          actions: workflow.actions as ActionConfig[],
+          isActive: workflow.isActive,
+          organizationId: workflow.organizationId || undefined,
+          userId: workflow.userId
+        }));
+
+      return matchingWorkflows;
+    } catch (error) {
+      console.error('Error getting matching workflows:', error);
+      return [];
     }
-
-    return matchingWorkflows;
   }
 
   /**

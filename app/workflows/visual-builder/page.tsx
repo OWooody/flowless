@@ -514,24 +514,30 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     setLastExecutionResult(null); // Clear previous execution result
     
     try {
-      // Create a test event for the workflow
-      const testEvent = {
-        name: 'manual_test_event',
-        category: 'engagement',
-        itemName: 'test_item',
-        itemCategory: 'test_category',
-        value: 100,
-        userId: 'test_user',
-        organizationId: 'test_org',
-        timestamp: new Date().toISOString(),
-      };
+      // Require user to provide test data
+      const testData = prompt('Please provide test data for your workflow (JSON format):');
+      
+      if (!testData) {
+        alert('Test data is required to run the workflow.');
+        setIsRunning(false);
+        return;
+      }
+
+      let parsedTestData;
+      try {
+        parsedTestData = JSON.parse(testData);
+      } catch (error) {
+        alert('Invalid JSON format. Please provide valid JSON data.');
+        setIsRunning(false);
+        return;
+      }
 
       const response = await fetch(`/api/workflows/${editWorkflowId}/test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ testEvent }),
+        body: JSON.stringify({ testData: parsedTestData }),
       });
 
       if (!response.ok) {

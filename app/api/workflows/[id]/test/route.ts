@@ -27,28 +27,23 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { testEvent } = body;
+    const { testData } = body;
 
-    // Use provided test event or create a default one
-    const trigger = workflow.trigger as any;
-    const eventData = testEvent || {
-      name: 'test_event',
-      category: trigger?.eventType || 'engagement',
-      itemName: 'test_item',
-      itemCategory: 'test_category',
-      value: 100,
-      userId: session.userId,
-      organizationId: session.orgId,
-      timestamp: new Date().toISOString(),
-    };
+    // Require test data from user
+    if (!testData) {
+      return NextResponse.json(
+        { error: 'Test data is required' },
+        { status: 400 }
+      );
+    }
 
-    // Execute the workflow with test data
-    const result = await workflowService.executeWorkflow(params.id, eventData);
+    // Execute the workflow with provided test data
+    const result = await workflowService.executeWorkflow(params.id, testData);
 
     return NextResponse.json({
       success: true,
       result,
-      testEvent: eventData,
+      testData: testData,
     });
   } catch (error) {
     console.error('Error testing workflow:', error);

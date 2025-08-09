@@ -203,154 +203,69 @@ return false;
 
 ## 🧪 Testing Your Conditions
 
-### Test Button
-- Click "Test All Branches" to evaluate your conditions
-- System runs each branch with sample data
-- Shows which branch would execute
-- Displays detailed results for each branch
+### How Testing Works
+1. **Click Run Button**: Use the run button in the condition node
+2. **Condition Evaluation**: System evaluates each branch condition
+3. **Branch Highlighting**: Active branch is highlighted in green
+4. **Real Data**: Uses actual data from previous nodes
 
-### Sample Test Data
-The test environment provides realistic sample data:
-```javascript
-{
-  event: {
-    user: { 
-      age: 25, 
-      country: 'US', 
-      isVIP: true, 
-      email: 'user@example.com' 
-    },
-    order: { 
-      total: 150, 
-      status: 'pending', 
-      items: ['item1', 'item2'] 
-    },
-    timestamp: '2024-01-15T10:30:00Z',
-    category: 'purchase',
-    value: 150
-  },
-  workflow: {
-    config: { 
-      minAge: 18, 
-      maxOrderValue: 1000, 
-      allowedCountries: ['US', 'CA', 'UK'] 
-    },
-    variables: { 
-      promoCode: 'SUMMER20', 
-      discount: 0.1 
-    }
-  },
-  execution: [
-    { 
-      output: { previousResult: 'success' }, 
-      timestamp: '2024-01-15T10:25:00Z' 
-    }
-  ]
-}
-```
+### Testing Best Practices
+1. **Test with Real Data**: Use actual data from your workflow
+2. **Edge Cases**: Test boundary conditions and edge cases
+3. **Multiple Scenarios**: Test different data combinations
+4. **Error Handling**: Ensure conditions handle invalid data gracefully
+5. **Performance**: Keep conditions simple and efficient
 
 ## 🚨 Best Practices
 
-### 1. Always Return Boolean Values
-```javascript
-// ✅ Good - explicit return
-if (event.user.age >= 18) return true;
-return false;
+### ✅ Do's
+1. **Keep it Simple**: Use clear, readable conditions
+2. **Handle Edge Cases**: Consider null, undefined, and empty values
+3. **Use Meaningful Names**: Name variables and functions clearly
+4. **Test Thoroughly**: Test with various data scenarios
+5. **Document Logic**: Add comments for complex conditions
 
-// ✅ Good - direct return
-return event.user.age >= 18;
-
-// ❌ Bad - might return undefined
-if (event.user.age >= 18) return true;
-```
-
-### 2. Handle Missing Data Safely
-```javascript
-// ✅ Good - safe property access
-if (event.user && event.user.age >= 18) return true;
-
-// ❌ Bad - might throw error
-if (event.user.age >= 18) return true;
-```
-
-### 3. Use Clear Variable Names
-```javascript
-// ✅ Good - descriptive names
-const minimumAge = workflow.config.minAge;
-const userAge = event.user.age;
-if (userAge >= minimumAge) return true;
-
-// ❌ Bad - unclear names
-if (event.user.age >= workflow.config.minAge) return true;
-```
-
-### 4. Comment Complex Logic
-```javascript
-// Check if user meets age and location requirements
-if (event.user.age >= 18 && event.user.country === 'US') return true;
-
-// Allow VIP customers regardless of age/location
-if (event.user.isVIP) return true;
-
-// Default: deny access
-return false;
-```
-
-### 5. Test All Branches
-- Always test both True and False paths
-- Verify branch evaluation order
-- Test with edge case data
-- Ensure inactive branches don't interfere
+### ❌ Don'ts
+1. **Don't Overcomplicate**: Avoid deeply nested conditions
+2. **Don't Ignore Errors**: Always handle potential errors
+3. **Don't Hardcode Values**: Use variables and parameters
+4. **Don't Skip Validation**: Validate input data before use
+5. **Don't Forget Performance**: Consider execution time for complex logic
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
-#### Syntax Errors
-```javascript
-// ❌ Missing closing parenthesis
-if (event.user.age >= 18 return true;
+#### 1. **Condition Always Returns False**
+- Check if you're accessing the right data properties
+- Verify data types (string vs number)
+- Ensure proper comparison operators
+- Check for null/undefined values
 
-// ✅ Correct syntax
-if (event.user.age >= 18) return true;
-```
+#### 2. **Condition Throws Errors**
+- Add null checks before accessing nested properties
+- Use optional chaining (`?.`) for safe access
+- Validate data types before operations
+- Handle edge cases gracefully
 
-#### Undefined Variables
-```javascript
-// ❌ Might fail if user object doesn't exist
-if (event.user.age >= 18) return true;
+#### 3. **Branch Not Executing**
+- Verify condition syntax is correct
+- Check if condition evaluates to true
+- Ensure proper logical operators
+- Test with actual data values
 
-// ✅ Safe access with existence check
-if (event.user && event.user.age >= 18) return true;
-```
-
-#### Type Mismatches
-```javascript
-// ❌ Comparing string with number
-if (event.user.age >= "18") return true;
-
-// ✅ Convert to number
-if (Number(event.user.age) >= 18) return true;
-```
-
-#### Branch Order Issues
-```javascript
-// ❌ More specific condition after general one
-if (event.user.age >= 18) return true;
-if (event.user.age >= 18 && event.user.isVIP) return true; // Never reached
-
-// ✅ More specific condition first
-if (event.user.age >= 18 && event.user.isVIP) return true;
-if (event.user.age >= 18) return true;
-```
+#### 4. **Performance Issues**
+- Simplify complex conditions
+- Avoid expensive operations in conditions
+- Use efficient data structures
+- Consider caching frequently used values
 
 ### Debugging Tips
-
-1. **Use console.log()**: Add logging to see what's happening
-2. **Test Individual Branches**: Disable other branches to isolate issues
-3. **Check Data Types**: Ensure you're comparing the right types
-4. **Verify Branch Order**: Make sure conditions are in the right sequence
-5. **Use Sample Data**: Test with the provided sample data first
+1. **Use Console Logs**: Add logging to see data values
+2. **Test Incrementally**: Test one condition at a time
+3. **Check Data Flow**: Verify data is reaching the condition node
+4. **Review Logic**: Double-check your conditional logic
+5. **Use Breakpoints**: Set breakpoints in complex conditions
 
 ## 🎉 What's Next?
 
