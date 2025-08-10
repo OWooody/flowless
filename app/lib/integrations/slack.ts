@@ -23,6 +23,9 @@ export interface SlackChannelInfo {
   is_private: boolean;
   is_archived: boolean;
   num_members: number;
+  purpose?: {
+    value: string;
+  };
 }
 
 export interface SlackUserInfo {
@@ -127,8 +130,28 @@ export class SlackService {
     const credential = await this.getCredential(credentialId);
     const { botToken } = credential.config;
 
-    const result = await this.makeSlackRequest('conversations.list', botToken);
-    return result.channels as SlackChannelInfo[];
+    try {
+      // Try the newer conversations.list API first (requires more scopes)
+      const result = await this.makeSlackRequest('conversations.list', botToken);
+      return result.channels as SlackChannelInfo[];
+    } catch (error) {
+      // Fallback to older channels.list API (requires only channels:read scope)
+      console.log('Falling back to channels.list API due to scope limitations');
+      try {
+        const result = await this.makeSlackRequest('channels.list', botToken);
+        return result.channels.map((channel: any) => ({
+          id: channel.id,
+          name: channel.name,
+          is_private: false, // channels.list only shows public channels
+          is_archived: channel.is_archived || false,
+          num_members: channel.num_members || 0,
+          purpose: channel.purpose ? { value: channel.purpose.value } : null
+        })) as SlackChannelInfo[];
+      } catch (fallbackError) {
+        console.error('Both API methods failed:', { original: error, fallback: fallbackError });
+        throw new Error('Unable to fetch channels. Please check your Slack app permissions.');
+      }
+    }
   }
 
   async getUsers(credentialId: string) {

@@ -428,6 +428,10 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
 
     const [slackCredentials, setSlackCredentials] = useState<any[]>([]);
     const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
+    const [channels, setChannels] = useState<any[]>([]);
+    const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+    const [channelSearch, setChannelSearch] = useState('');
+    const [showChannelDropdown, setShowChannelDropdown] = useState(false);
 
     // Fetch Slack credentials when component mounts
     useEffect(() => {
@@ -450,6 +454,48 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
 
       fetchSlackCredentials();
     }, []);
+
+    // Fetch channels when credential is selected
+    useEffect(() => {
+      if (nodeData.credentialId) {
+        fetchChannels();
+      } else {
+        setChannels([]);
+        setShowChannelDropdown(false);
+      }
+    }, [nodeData.credentialId]);
+
+    const fetchChannels = async () => {
+      if (!nodeData.credentialId) return;
+      
+      setIsLoadingChannels(true);
+      try {
+        const response = await fetch(`/api/slack/channels?credentialId=${nodeData.credentialId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setChannels(data.channels || []);
+        } else {
+          console.error('Failed to fetch channels');
+          setChannels([]);
+        }
+      } catch (error) {
+        console.error('Error fetching channels:', error);
+        setChannels([]);
+      } finally {
+        setIsLoadingChannels(false);
+      }
+    };
+
+    const filteredChannels = channels.filter(channel => 
+      channel.name?.toLowerCase().includes(channelSearch.toLowerCase()) ||
+      channel.id?.toLowerCase().includes(channelSearch.toLowerCase())
+    );
+
+    const handleChannelSelect = (channelId: string, channelName: string) => {
+      updateNodeData('channel', channelName);
+      setShowChannelDropdown(false);
+      setChannelSearch('');
+    };
 
     return (
       <div className="space-y-4">
@@ -480,17 +526,75 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
           )}
         </div>
 
-        <div>
+        <div className="relative">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Channel
           </label>
-          <input
-            type="text"
-            value={nodeData.channel || ''}
-            onChange={(e) => updateNodeData('channel', e.target.value)}
-            placeholder="#general"
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={nodeData.channel || ''}
+              onChange={(e) => updateNodeData('channel', e.target.value)}
+              onFocus={() => nodeData.credentialId && setShowChannelDropdown(true)}
+              placeholder="#general"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            {nodeData.credentialId && (
+              <button
+                type="button"
+                onClick={() => setShowChannelDropdown(!showChannelDropdown)}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
+          </div>
+          
+          {showChannelDropdown && nodeData.credentialId && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-hidden">
+              <div className="p-2 border-b border-gray-200">
+                <input
+                  type="text"
+                  value={channelSearch}
+                  onChange={(e) => setChannelSearch(e.target.value)}
+                  placeholder="Search channels..."
+                  className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div className="max-h-48 overflow-y-auto">
+                {isLoadingChannels ? (
+                  <div className="p-3 text-center text-sm text-gray-500">
+                    Loading channels...
+                  </div>
+                ) : filteredChannels.length === 0 ? (
+                  <div className="p-3 text-center text-sm text-gray-500">
+                    {channelSearch ? 'No channels found' : 'No channels available'}
+                  </div>
+                ) : (
+                  filteredChannels.map((channel) => (
+                    <button
+                      key={channel.id}
+                      type="button"
+                      onClick={() => handleChannelSelect(channel.id, channel.name)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                    >
+                      <div className="font-medium text-gray-900">#{channel.name}</div>
+                      {channel.purpose && (
+                        <div className="text-xs text-gray-500 truncate">{channel.purpose}</div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+          
+          {!nodeData.credentialId && (
+            <p className="text-sm text-gray-500 mt-1">Select a Slack integration first to load available channels</p>
+          )}
         </div>
 
         <div>
