@@ -390,46 +390,6 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
 
     return (
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800">TypeScript Code</h3>
-        
-        {/* Available Variables Display */}
-        {Object.keys(previousNodeOutputs).length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-xs">
-            <div className="text-blue-700 font-medium mb-1">
-              💡 Available variables:
-            </div>
-            <div className="text-blue-600 space-x-2">
-              {Object.keys(previousNodeOutputs).map((nodeName, index) => (
-                <span key={index} className="inline-block bg-blue-100 px-2 py-1 rounded">
-                  {nodeName}
-                </span>
-              ))}
-            </div>
-            {/* Show trigger data specifically */}
-            {previousNodeOutputs.trigger && (
-              <div className="mt-2 pt-2 border-t border-blue-200">
-                <div className="text-blue-700 font-medium mb-1">
-                  🚀 Trigger data:
-                </div>
-                <div className="text-blue-600 space-x-2">
-                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                    trigger.data
-                  </span>
-                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                    trigger.type
-                  </span>
-                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                    trigger.timestamp
-                  </span>
-                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                    trigger.testData
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Code Editor */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -980,12 +940,18 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
       {/* Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {selectedNode.data?.label || 'Node Properties'}
-          </h2>
+          <div className="flex-1 mr-3">
+            <input
+              type="text"
+              value={nodeData.label || ''}
+              onChange={(e) => handleInputBlur('label', e.target.value)}
+              placeholder="Enter node label"
+              className="w-full text-lg font-semibold text-gray-800 bg-transparent border-none outline-none focus:ring-0 focus:border-none p-0"
+            />
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -999,20 +965,6 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
 
       {/* Content */}
       <div className="p-4 space-y-6">
-        {/* Node Label */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Node Label
-          </label>
-          <input
-            type="text"
-            value={nodeData.label || ''}
-            onChange={(e) => handleInputBlur('label', e.target.value)}
-            placeholder="Enter node label"
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
         {/* Node-specific properties */}
         {renderActionProperties()}
         {renderTypeScriptProperties()}
