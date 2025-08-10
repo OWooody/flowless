@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { useWorkflowContext } from './WorkflowContext';
 
@@ -26,7 +26,7 @@ const TriggerNode = memo(({ data, selected, id, onWorkflowExecuted, onWorkflowSt
   const [jsonError, setJsonError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const { setNodes } = useReactFlow();
-  const { addTriggerData } = useWorkflowContext();
+  const { addTriggerData, previewTriggerData } = useWorkflowContext();
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -67,7 +67,37 @@ const TriggerNode = memo(({ data, selected, id, onWorkflowExecuted, onWorkflowSt
           : node
       )
     );
-  }, [id, setNodes]);
+    
+    // Auto-preview trigger data when test data changes
+    if (value.trim()) {
+      try {
+        const parsedData = JSON.parse(value);
+        previewTriggerData(parsedData, data.triggerType);
+      } catch (error) {
+        // If not valid JSON, try to handle as simple string/number
+        if (value.trim().startsWith('"') && value.trim().endsWith('"')) {
+          previewTriggerData(value.trim(), data.triggerType);
+        } else if (!value.trim().startsWith('{') && !value.trim().startsWith('[')) {
+          // Treat as simple string/number
+          previewTriggerData(value, data.triggerType);
+        }
+      }
+    } else {
+      // Use default data for empty input
+      previewTriggerData({ message: 'Sample webhook data', userId: 123, action: 'user_login' }, data.triggerType);
+    }
+  }, [id, setNodes, previewTriggerData, data.triggerType]);
+
+  // Initialize trigger data with default values when component mounts
+  useEffect(() => {
+    if (testData.trim()) {
+      // If there's existing test data, preview it
+      handleTestDataChange(testData);
+    } else {
+      // Use default data for initial preview
+      previewTriggerData({ message: 'Sample webhook data', userId: 123, action: 'user_login' }, data.triggerType);
+    }
+  }, []); // Only run once on mount
 
   const validateAndRunWorkflow = useCallback(async () => {
     if (!testData.trim()) {
@@ -92,6 +122,31 @@ const TriggerNode = memo(({ data, selected, id, onWorkflowExecuted, onWorkflowSt
       }
     }
   }, [testData]);
+
+  const handlePreviewTriggerData = useCallback(() => {
+    if (!testData.trim()) {
+      // Use default sample data for preview
+      const defaultData = { message: 'Sample webhook data', userId: 123, action: 'user_login' };
+      previewTriggerData(defaultData, data.triggerType);
+      return;
+    }
+
+    try {
+      const parsedData = JSON.parse(testData);
+      setJsonError('');
+      previewTriggerData(parsedData, data.triggerType);
+    } catch (error) {
+      // Try to handle as simple string/number
+      if (testData.trim().startsWith('"') && testData.trim().endsWith('"')) {
+        previewTriggerData(testData.trim(), data.triggerType);
+      } else if (testData.trim().startsWith('{') || testData.trim().startsWith('[')) {
+        setJsonError('Invalid JSON format. Check brackets, quotes, and commas.');
+      } else {
+        // Treat as simple string/number
+        previewTriggerData(testData, data.triggerType);
+      }
+    }
+  }, [testData, data.triggerType, previewTriggerData]);
 
   const runWorkflow = async (data: any) => {
     setIsRunning(true);
@@ -234,6 +289,15 @@ const TriggerNode = memo(({ data, selected, id, onWorkflowExecuted, onWorkflowSt
               Examples: {"{}"} (empty), "hello" (string), 42 (number)
             </p>
           </div>
+          
+          {/* Preview Button */}
+          <button
+            onClick={handlePreviewTriggerData}
+            className="w-full py-2 px-3 text-xs font-medium rounded transition-colors bg-blue-500 text-white hover:bg-blue-600 mb-2"
+            title="Preview trigger data without running workflow"
+          >
+            👁️ Preview Data
+          </button>
           
           <button
             onClick={validateAndRunWorkflow}

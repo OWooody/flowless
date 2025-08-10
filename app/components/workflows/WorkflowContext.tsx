@@ -9,6 +9,8 @@ interface WorkflowContextType {
   removeNodeOutput: (nodeId: string, oldNodeName?: string) => void;
   clearNodeOutputs: () => void;
   addTriggerData: (triggerData: any) => void;
+  previewTriggerData: (testData?: any, triggerType?: string) => void;
+  clearPreviewData: () => void;
   validateNodeName: (name: string, existingNames?: string[]) => { isValid: boolean; error?: string };
   sanitizeNodeName: (name: string) => string;
 }
@@ -138,6 +140,33 @@ export const WorkflowProvider: React.FC<WorkflowProviderProps> = ({ children }) 
     }));
   };
 
+  const previewTriggerData = (testData?: any, triggerType: string = 'webhook') => {
+    // Generate mock trigger data for preview purposes
+    const mockTriggerData = {
+      type: triggerType,
+      eventType: 'preview',
+      description: 'Preview trigger data (workflow not executed)',
+      data: testData || { message: 'Sample webhook data', userId: 123, action: 'user_login' },
+      timestamp: new Date().toISOString(),
+      nodeId: 'trigger-preview',
+      nodeLabel: 'Trigger Preview',
+      testData: testData,
+      isPreview: true
+    };
+    
+    setPreviousNodeOutputs(prev => ({
+      ...prev,
+      trigger: mockTriggerData
+    }));
+  };
+
+  const clearPreviewData = () => {
+    setPreviousNodeOutputs(prev => {
+      const { trigger, ...rest } = prev;
+      return rest;
+    });
+  };
+
   return (
     <WorkflowContext.Provider value={{
       previousNodeOutputs,
@@ -146,6 +175,8 @@ export const WorkflowProvider: React.FC<WorkflowProviderProps> = ({ children }) 
       removeNodeOutput,
       clearNodeOutputs,
       addTriggerData,
+      previewTriggerData,
+      clearPreviewData,
       validateNodeName,
       sanitizeNodeName
     }}>

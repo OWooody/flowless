@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { useWorkflowContext } from './WorkflowContext';
 import CodeMirror from '@uiw/react-codemirror';
@@ -163,19 +163,28 @@ function createConditionCompletions(previousNodeOutputs: Record<string, any> = {
 }
 
 const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>) => {
+  const [branches, setBranches] = useState<ConditionBranch[]>(data.branches || []);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(data.label || 'Condition');
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const { setNodes, getNodes } = useReactFlow();
-  const { validateNodeName, removeNodeOutput, previousNodeOutputs } = useWorkflowContext();
+  const { validateNodeName, removeNodeOutput, previousNodeOutputs, addNodeOutput, clearPreviewData } = useWorkflowContext();
 
-  // Initialize default branches if none exist
-  const branches = data.branches || [
-    { id: 'if-1', type: 'if', condition: '', label: 'If' },
-    { id: 'else-1', type: 'else', condition: undefined, label: 'Else' }
-  ];
+
+
+  // Initialize branches when component mounts
+  useEffect(() => {
+    if (!branches.length && data.branches?.length) {
+      setBranches(data.branches);
+    } else if (!branches.length) {
+      setBranches([
+        { id: 'if-1', type: 'if', condition: '', label: 'If' },
+        { id: 'else-1', type: 'else', condition: undefined, label: 'Else' }
+      ]);
+    }
+  }, [data.branches, branches.length]);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -470,6 +479,13 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
                   trigger.testData
                 </span>
               </div>
+              <button
+                onClick={() => removeNodeOutput(id)}
+                className="mt-2 text-red-500 hover:text-red-700 text-xs"
+                title="Clear trigger data"
+              >
+                Clear Trigger Data
+              </button>
             </div>
           )}
         </div>
@@ -577,6 +593,30 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
         
         {/* Help Section */}
         <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          {/* Trigger Data Status */}
+          {previousNodeOutputs.trigger && (
+            <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
+              <div className="text-xs text-blue-700 font-medium mb-1">
+                🎯 Trigger Data Available {previousNodeOutputs.trigger.isPreview && '(Preview Mode)'}
+              </div>
+              <div className="text-xs text-blue-600 space-y-1">
+                <div>• Type: {previousNodeOutputs.trigger.type}</div>
+                <div>• Event: {previousNodeOutputs.trigger.eventType}</div>
+                <div>• Data: {JSON.stringify(previousNodeOutputs.trigger.data).substring(0, 50)}...</div>
+                {previousNodeOutputs.trigger.isPreview && (
+                  <div className="text-blue-500 italic">💡 Use this data to test your conditions!</div>
+                )}
+                <button
+                  onClick={clearPreviewData}
+                  className="mt-2 text-red-500 hover:text-red-700 text-xs underline"
+                  title="Clear trigger data"
+                >
+                  Clear Trigger Data
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="text-xs text-gray-600 font-medium mb-2">
             💡 Condition Examples:
           </div>
