@@ -172,35 +172,6 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
     updateNodeData(field, value);
   }, [updateNodeData]);
 
-  const handleRunTypeScript = useCallback(async () => {
-    if (!nodeData.code?.trim()) return;
-    
-    setIsRunning(true);
-    setRunResult(null);
-    
-    try {
-      const response = await fetch('/api/workflows/test-node', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nodeId: selectedNode.id,
-          nodeType: 'typescript',
-          nodeData: { code: nodeData.code },
-          previousOutputs: previousNodeOutputs,
-        }),
-      });
-
-      const result = await response.json();
-      setRunResult(result);
-    } catch (error) {
-      setRunResult({ success: false, error: 'Failed to run code' });
-    } finally {
-      setIsRunning(false);
-    }
-  }, [nodeData.code, selectedNode.id, previousNodeOutputs]);
-
   // Function to expand all nodes in JSON tree
   const expandAll = useCallback(() => {
     if (runResult?.output) {
@@ -239,6 +210,38 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
       setJsonTreeExpanded({});
     }
   }, []);
+
+  const handleRunNode = useCallback(async () => {
+    if (selectedNode.type === 'trigger') {
+      alert('Trigger nodes cannot be run individually.');
+      return;
+    }
+
+    setIsRunning(true);
+    setRunResult(null);
+
+    try {
+      const response = await fetch('/api/workflows/run-node', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodeId: selectedNode.id,
+          nodeType: selectedNode.type,
+          nodeData: nodeData,
+          previousOutputs: previousNodeOutputs,
+        }),
+      });
+
+      const result = await response.json();
+      setRunResult(result);
+    } catch (error) {
+      setRunResult({ success: false, error: 'Failed to run node' });
+    } finally {
+      setIsRunning(false);
+    }
+  }, [selectedNode.id, selectedNode.type, nodeData, previousNodeOutputs]);
 
   // Don't render for trigger or condition nodes
   if (!selectedNode || selectedNode.type === 'trigger' || selectedNode.type === 'condition') {
@@ -404,159 +407,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
           />
         </div>
 
-        {/* Run Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={handleRunTypeScript}
-            disabled={isRunning || !nodeData.code?.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors text-white font-medium"
-          >
-            {isRunning ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Running...</span>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-                </svg>
-                <span>Run Code</span>
-              </div>
-            )}
-          </button>
-        </div>
-
-        {/* Run Results */}
-        {runResult && (
-          <div className="border border-gray-200 rounded-md overflow-hidden">
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200">
-              <button
-                onClick={() => handleTabSwitch('output')}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${
-                  activeTab === 'output'
-                    ? 'text-blue-700 border-b-2 border-blue-500'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Output
-              </button>
-              <button
-                onClick={() => handleTabSwitch('json')}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${
-                  activeTab === 'json'
-                    ? 'text-blue-700 border-b-2 border-blue-500'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                JSON
-              </button>
-            </div>
-            
-            {/* Tab Content */}
-            <div className="p-3">
-              {activeTab === 'output' ? (
-                <div className="text-xs space-y-1">
-                  {runResult.success ? (
-                    <div className="text-green-700">
-                      {runResult.output !== undefined ? (
-                        <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-32">
-                          {JSON.stringify(runResult.output, null, 2)}
-                        </pre>
-                      ) : (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                          <div className="flex items-center space-x-2 text-yellow-800">
-                            <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                            <div>
-                              <div className="font-medium">No output returned</div>
-                              <div className="text-xs text-yellow-700 mt-1">
-                                Your code executed successfully but didn't return a value. Check your return statement.
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-red-700">
-                      <div><strong>Error:</strong> {runResult.error}</div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs">
-                  {runResult.success && runResult.output !== undefined ? (
-                    <div>
-                      {/* JSON Tree Controls */}
-                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={expandAll}
-                            className="p-1 text-gray-500 hover:text-gray-700 rounded"
-                            title="Expand all"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={collapseAll}
-                            className="p-1 text-gray-500 hover:text-gray-700 rounded"
-                            title="Collapse all"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(JSON.stringify(runResult.output, null, 2));
-                            }}
-                            className="p-1 text-gray-500 hover:text-gray-700 rounded"
-                            title="Copy JSON"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => {
-                              const blob = new Blob([JSON.stringify(runResult.output, null, 2)], { type: 'application/json' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = 'output.json';
-                              a.click();
-                              URL.revokeObjectURL(url);
-                            }}
-                            className="p-1 text-gray-500 hover:text-gray-700 rounded"
-                            title="Download JSON"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                      {/* JSON Tree */}
-                      <div className="max-h-48 overflow-auto">
-                        <JSONTree data={runResult.output} expanded={jsonTreeExpanded} setExpanded={setJsonTreeExpanded} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-gray-500">No data to display</div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
+        {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Description
@@ -564,7 +415,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
           <textarea
             value={nodeData.description || ''}
             onChange={(e) => handleInputBlur('description', e.target.value)}
-            placeholder="Describe what this code does"
+            placeholder="Describe what this code node does"
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-20 resize-none"
           />
         </div>
@@ -949,6 +800,29 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
               className="w-full text-lg font-semibold text-gray-800 bg-transparent border-none outline-none focus:ring-0 focus:border-none p-0"
             />
           </div>
+          
+          {/* Run Node Button */}
+          <button
+            onClick={() => handleRunNode()}
+            disabled={selectedNode.type === 'trigger' || isRunning}
+            className={`mr-2 p-2 rounded-lg transition-all duration-200 ${
+              selectedNode.type === 'trigger'
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : isRunning
+                ? 'bg-green-500 text-white cursor-wait'
+                : 'bg-green-600 hover:bg-green-700 text-white shadow-sm hover:shadow-md'
+            }`}
+            title={selectedNode.type === 'trigger' ? 'Trigger nodes cannot be run individually' : isRunning ? 'Running...' : 'Run this node'}
+          >
+            {isRunning ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+              </svg>
+            )}
+          </button>
+          
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
@@ -962,6 +836,93 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
           {selectedNode.type} node
         </p>
       </div>
+
+      {/* Run Results Section */}
+      {runResult && (
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-700">Run Results</h3>
+            <button
+              onClick={() => setRunResult(null)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          {runResult.success ? (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleTabSwitch('output')}
+                  className={`px-2 py-1 text-xs rounded ${
+                    activeTab === 'output' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Output
+                </button>
+                <button
+                  onClick={() => handleTabSwitch('json')}
+                  className={`px-2 py-1 text-xs rounded ${
+                    activeTab === 'json' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  JSON
+                </button>
+              </div>
+              
+              {activeTab === 'output' && (
+                <div className="bg-white border border-gray-200 rounded p-2 text-xs font-mono text-gray-700 max-h-32 overflow-y-auto">
+                  {JSON.stringify(runResult.output || runResult, null, 2)}
+                </div>
+              )}
+              
+              {activeTab === 'json' && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={expandAll}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 flex items-center space-x-1"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                      </svg>
+                      <span>Expand all</span>
+                    </button>
+                    <button
+                      onClick={collapseAll}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 flex items-center space-x-1"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                      <span>Collapse all</span>
+                    </button>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded p-2 max-h-48 overflow-y-auto">
+                    <JSONTree
+                      data={runResult.output || runResult}
+                      expanded={jsonTreeExpanded}
+                      setExpanded={setJsonTreeExpanded}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-red-50 border border-red-200 rounded p-2 text-sm text-red-700">
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{runResult.error || 'An error occurred while running the node'}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       <div className="p-4 space-y-6">
