@@ -221,23 +221,65 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
     setRunResult(null);
 
     try {
-      const response = await fetch('/api/workflows/run-node', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nodeId: selectedNode.id,
-          nodeType: selectedNode.type,
-          nodeData: nodeData,
-          previousOutputs: previousNodeOutputs,
-        }),
-      });
+      let result;
 
-      const result = await response.json();
+      // Handle Slack nodes directly
+      if (selectedNode.type === 'slack') {
+        if (!nodeData.credentialId || !nodeData.channel || !nodeData.message) {
+          throw new Error('Missing required fields: Integration, Channel, and Message');
+        }
+
+        console.log('🚀 Running Slack node directly:', {
+          credentialId: nodeData.credentialId,
+          channel: nodeData.channel,
+          message: nodeData.message,
+          messageType: nodeData.messageType
+        });
+
+        const response = await fetch('/api/test-slack', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            credentialId: nodeData.credentialId,
+            channel: nodeData.channel,
+            message: nodeData.message,
+          }),
+        });
+
+        result = await response.json();
+        
+        if (result.success) {
+          console.log('✅ Slack message sent successfully:', result);
+        } else {
+          throw new Error(result.error || 'Failed to send Slack message');
+        }
+      } else {
+        // For other node types, try the generic endpoint (if it exists)
+        const response = await fetch('/api/workflows/run-node', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            nodeId: selectedNode.id,
+            nodeType: selectedNode.type,
+            nodeData: nodeData,
+            previousOutputs: previousNodeOutputs,
+          }),
+        });
+
+        result = await response.json();
+      }
+
       setRunResult(result);
     } catch (error) {
-      setRunResult({ success: false, error: 'Failed to run node' });
+      console.error('❌ Error running node:', error);
+      setRunResult({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to run node' 
+      });
     } finally {
       setIsRunning(false);
     }

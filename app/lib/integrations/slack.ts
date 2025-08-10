@@ -67,21 +67,109 @@ export class SlackService {
       options.body = JSON.stringify(body);
     }
 
+    console.log(`Making Slack API request to ${endpoint}:`, {
+      url,
+      method,
+      hasBody: !!body,
+      bodyKeys: body ? Object.keys(body) : [],
+      tokenPrefix: token ? token.substring(0, 10) + '...' : 'none'
+    });
+
     const response = await fetch(url, options);
     const result = await response.json();
 
+    console.log(`Slack API response from ${endpoint}:`, {
+      status: response.status,
+      ok: response.ok,
+      result: result
+    });
+
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`);
+      const errorMessage = result.error || 'Unknown Slack API error';
+      const errorDetails = {
+        endpoint,
+        status: response.status,
+        slackError: errorMessage,
+        response: result,
+        requestBody: body
+      };
+      
+      console.error('Slack API error details:', errorDetails);
+      
+      // Provide more specific error messages for common issues
+      let userFriendlyError = `Slack API error: ${errorMessage}`;
+      
+      switch (errorMessage) {
+        case 'channel_not_found':
+          userFriendlyError = 'Channel not found. Make sure the channel exists and the bot is a member.';
+          break;
+        case 'not_in_channel':
+          userFriendlyError = 'Bot is not in this channel. Please invite the bot to the channel first.';
+          break;
+        case 'invalid_auth':
+          userFriendlyError = 'Invalid authentication. Please check your bot token.';
+          break;
+        case 'token_revoked':
+          userFriendlyError = 'Bot token has been revoked. Please regenerate your bot token.';
+          break;
+        case 'insufficient_scope':
+          userFriendlyError = 'Bot lacks required permissions. Please check your OAuth scopes.';
+          break;
+      }
+      
+      throw new Error(userFriendlyError);
     }
 
     return result;
   }
 
   async sendMessage(credentialId: string, message: SlackMessage) {
-    const credential = await this.getCredential(credentialId);
-    const { botToken } = credential.config;
+    try {
+      const credential = await this.getCredential(credentialId);
+      const { botToken } = credential.config;
 
-    return await this.makeSlackRequest('chat.postMessage', botToken, 'POST', message);
+      // Validate and format the channel
+      let formattedChannel = message.channel;
+      
+      // Remove # if present (Slack API expects channel name without #)
+      if (formattedChannel.startsWith('#')) {
+        formattedChannel = formattedChannel.substring(1);
+      }
+      
+      // Remove @ if present (for DMs, Slack expects user ID)
+      if (formattedChannel.startsWith('@')) {
+        formattedChannel = formattedChannel.substring(1);
+      }
+
+      const formattedMessage = {
+        ...message,
+        channel: formattedChannel,
+        // Ensure text is present
+        text: message.text || 'No message content provided'
+      };
+
+      console.log('Sending Slack message:', {
+        credentialId,
+        originalChannel: message.channel,
+        formattedChannel,
+        message: formattedMessage,
+        hasToken: !!botToken,
+        tokenPrefix: botToken ? botToken.substring(0, 10) + '...' : 'none'
+      });
+
+      const result = await this.makeSlackRequest('chat.postMessage', botToken, 'POST', formattedMessage);
+      
+      console.log('Slack message sent successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Failed to send Slack message:', {
+        credentialId,
+        channel: message.channel,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
   }
 
   async sendMessageToThread(credentialId: string, channel: string, threadTs: string, text: string) {
@@ -269,6 +357,53 @@ export class SlackService {
 
     const result = await this.makeSlackRequest(`reactions.get?channel=${channel}&timestamp=${timestamp}`, botToken);
     return result.message;
+  }
+
+  async testAuth(credentialId: string) {
+    try {
+      const credential = await this.getCredential(credentialId);
+      const { botToken } = credential.config;
+
+      console.log('Testing Slack authentication for credential:', credentialId);
+
+      // Test basic auth with auth.test
+      const authTest = await this.makeSlackRequest('auth.test', botToken);
+      
+      // Test bot info
+      const botInfo = await this.makeSlackRequest('bots.info', botToken);
+      
+      // Test if we can list channels (basic permission check)
+      let channelsAccess = false;
+      try {
+        await this.makeSlackRequest('channels.list', botToken);
+        channelsAccess = true;
+      } catch (error) {
+        console.log('Channels access test failed:', error);
+      }
+
+      return {
+        success: true,
+        bot: {
+          id: botInfo.bot.id,
+          name: botInfo.bot.name,
+          team: authTest.team,
+          user: authTest.user,
+          teamId: authTest.team_id,
+          userId: authTest.user_id
+        },
+        permissions: {
+          canListChannels: channelsAccess,
+          scopes: botInfo.bot.scopes || []
+        },
+        workspace: {
+          name: authTest.team,
+          id: authTest.team_id
+        }
+      };
+    } catch (error) {
+      console.error('Slack auth test failed:', error);
+      throw error;
+    }
   }
 
   // Helper method to create rich message blocks
