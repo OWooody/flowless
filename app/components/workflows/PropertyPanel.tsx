@@ -109,12 +109,14 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
   const [activeTab, setActiveTab] = useState<'output' | 'json'>('output');
   const [jsonTreeExpanded, setJsonTreeExpanded] = useState<Record<string, boolean>>({});
 
-  // Fetch execution data when node changes
-  useEffect(() => {
-    if (selectedNode && selectedNode.id) {
-      fetchExecutionData();
-    }
-  }, [selectedNode]);
+  // Slack-specific state - always declare these hooks
+  const [slackCredentials, setSlackCredentials] = useState<any[]>([]);
+  const [slackChannels, setSlackChannels] = useState<any[]>([]);
+  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
+  const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+  const [selectedCredential, setSelectedCredential] = useState<string>('');
+  const [channelSearch, setChannelSearch] = useState('');
+  const [showChannelDropdown, setShowChannelDropdown] = useState(false);
 
   // Update local node data when selected node changes
   useEffect(() => {
@@ -136,6 +138,13 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
         'action_1': { result: "Sample action result" },
         'condition_1': { passed: true }
       });
+    }
+  }, [selectedNode]);
+
+  // Fetch execution data when node changes
+  useEffect(() => {
+    if (selectedNode && selectedNode.id) {
+      fetchExecutionData();
     }
   }, [selectedNode]);
 
@@ -284,6 +293,64 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
       setIsRunning(false);
     }
   }, [selectedNode.id, selectedNode.type, nodeData, previousNodeOutputs]);
+
+  // Slack-specific functions - always define these
+  const fetchSlackCredentials = useCallback(async () => {
+    setIsLoadingCredentials(true);
+    try {
+      const response = await fetch('/api/credentials');
+      if (response.ok) {
+        const credentials = await response.json();
+        const slackCreds = credentials.filter((cred: any) => cred.type === 'slack');
+        setSlackCredentials(slackCreds);
+        
+        // Auto-select first credential if available
+        if (slackCreds.length > 0 && !selectedCredential) {
+          setSelectedCredential(slackCreds[0].id);
+          updateNodeData('credentialId', slackCreds[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch Slack credentials:', error);
+    } finally {
+      setIsLoadingCredentials(false);
+    }
+  }, [selectedCredential, updateNodeData]);
+
+  const fetchChannels = useCallback(async () => {
+    if (!selectedCredential) return;
+    
+    setIsLoadingChannels(true);
+    try {
+      const response = await fetch(`/api/slack/channels?credentialId=${selectedCredential}`);
+      if (response.ok) {
+        const channels = await response.json();
+        setSlackChannels(channels);
+      }
+    } catch (error) {
+      console.error('Failed to fetch channels:', error);
+    } finally {
+      setIsLoadingChannels(false);
+    }
+  }, [selectedCredential]);
+
+  const handleChannelSelect = useCallback((channelId: string, channelName: string) => {
+    updateNodeData('channel', channelName);
+  }, [updateNodeData]);
+
+  // Fetch Slack credentials when node type changes
+  useEffect(() => {
+    if (selectedNode?.type === 'slack') {
+      fetchSlackCredentials();
+    }
+  }, [selectedNode?.type, fetchSlackCredentials]);
+
+  // Fetch channels when credential changes
+  useEffect(() => {
+    if (selectedNode?.type === 'slack' && selectedCredential) {
+      fetchChannels();
+    }
+  }, [selectedNode?.type, selectedCredential, fetchChannels]);
 
   // Don't render for trigger or condition nodes
   if (!selectedNode || selectedNode.type === 'trigger' || selectedNode.type === 'condition') {
@@ -468,76 +535,10 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
   const renderSlackProperties = () => {
     if (selectedNode.type !== 'slack') return null;
 
-    const [slackCredentials, setSlackCredentials] = useState<any[]>([]);
-    const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
-    const [channels, setChannels] = useState<any[]>([]);
-    const [isLoadingChannels, setIsLoadingChannels] = useState(false);
-    const [channelSearch, setChannelSearch] = useState('');
-    const [showChannelDropdown, setShowChannelDropdown] = useState(false);
-
-    // Fetch Slack credentials when component mounts
-    useEffect(() => {
-      const fetchSlackCredentials = async () => {
-        setIsLoadingCredentials(true);
-        try {
-          // Mock user ID - in real app, get from auth context
-          const userId = 'user-123';
-          const response = await fetch(`/api/credentials?userId=${userId}&provider=slack`);
-          const data = await response.json();
-          if (data.credentials) {
-            setSlackCredentials(data.credentials);
-          }
-        } catch (error) {
-          console.error('Error fetching Slack credentials:', error);
-        } finally {
-          setIsLoadingCredentials(false);
-        }
-      };
-
-      fetchSlackCredentials();
-    }, []);
-
-    // Fetch channels when credential is selected
-    useEffect(() => {
-      if (nodeData.credentialId) {
-        fetchChannels();
-      } else {
-        setChannels([]);
-        setShowChannelDropdown(false);
-      }
-    }, [nodeData.credentialId]);
-
-    const fetchChannels = async () => {
-      if (!nodeData.credentialId) return;
-      
-      setIsLoadingChannels(true);
-      try {
-        const response = await fetch(`/api/slack/channels?credentialId=${nodeData.credentialId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setChannels(data.channels || []);
-        } else {
-          console.error('Failed to fetch channels');
-          setChannels([]);
-        }
-      } catch (error) {
-        console.error('Error fetching channels:', error);
-        setChannels([]);
-      } finally {
-        setIsLoadingChannels(false);
-      }
-    };
-
-    const filteredChannels = channels.filter(channel => 
+    const filteredChannels = slackChannels.filter((channel: any) => 
       channel.name?.toLowerCase().includes(channelSearch.toLowerCase()) ||
       channel.id?.toLowerCase().includes(channelSearch.toLowerCase())
     );
-
-    const handleChannelSelect = (channelId: string, channelName: string) => {
-      updateNodeData('channel', channelName);
-      setShowChannelDropdown(false);
-      setChannelSearch('');
-    };
 
     return (
       <div className="space-y-4">
