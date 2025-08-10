@@ -10,7 +10,6 @@ import { basicSetup } from 'codemirror';
 
 interface CodeMirrorEditorProps {
   value: string;
-  onChange: (value: string) => void;
   previousNodeOutputs?: Record<string, any>;
   placeholder?: string;
   className?: string;
@@ -226,18 +225,13 @@ function createEnhancedCompletions(previousNodeOutputs: Record<string, any> = {}
 
 const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   value,
-  onChange,
   previousNodeOutputs = {},
   placeholder = '// Your code here...',
   className = ''
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
-
-  // Create a stable reference to the onChange function
-  const stableOnChange = useCallback((newValue: string) => {
-    onChange(newValue);
-  }, [onChange]);
+  const [localValue, setLocalValue] = useState(value);
 
   // Memoize the extensions to avoid recreating them unnecessarily
   const extensions = useMemo(() => [
@@ -247,13 +241,15 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     autocompletion({
       override: [createEnhancedCompletions(previousNodeOutputs)],
       defaultKeymap: true,
-      activateOnTyping: true,
-      maxRenderedOptions: 15, // Increased for more completions
-      activateOnTypingDelay: 100 // Reduced delay for better responsiveness
+      activateOnTyping: false, // Disable auto-activation to prevent freezing
+      maxRenderedOptions: 10, // Reduced for better performance
+      activateOnTypingDelay: 300 // Increased delay for better performance
     }),
+
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
-        stableOnChange(update.state.doc.toString());
+        // Update local state only - no node updates while typing
+        setLocalValue(update.state.doc.toString());
       }
     }),
     EditorView.theme({
@@ -286,7 +282,7 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         backgroundColor: '#4a5568'
       }
     })
-  ], [previousNodeOutputs, stableOnChange]);
+  ], [previousNodeOutputs]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -338,28 +334,7 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
               </span>
             ))}
           </div>
-          {/* Show trigger data specifically */}
-          {previousNodeOutputs.trigger && (
-            <div className="mt-2 pt-2 border-t border-blue-200">
-              <div className="text-blue-700 font-medium mb-1">
-                🚀 Trigger data:
-              </div>
-              <div className="text-blue-600 space-x-2">
-                <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                  trigger.data
-                </span>
-                <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                  trigger.type
-                </span>
-                <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                  trigger.timestamp
-                </span>
-                <span className="inline-block bg-green-100 px-2 py-1 rounded">
-                  trigger.testData
-                </span>
-              </div>
-            </div>
-          )}
+
         </div>
       )}
       
@@ -368,7 +343,8 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         className={`bg-gray-900 rounded-b-md border border-gray-300 ${Object.keys(previousNodeOutputs).length > 0 ? 'border-t-0 rounded-t-none' : ''} overflow-hidden shadow-lg`}
       />
       <div className="bg-gray-50 border border-gray-300 border-t-0 px-3 py-2 text-xs text-gray-600">
-        💡 <strong>Tip:</strong> Remember to use <code className="bg-gray-200 px-1 rounded">return</code> to output data for the next node
+        💡 <strong>Tip:</strong> Remember to use <code className="bg-gray-200 px-1 rounded">return</code> to output data for the next node. 
+        Code changes are saved when you save the entire workflow.
       </div>
     </div>
   );

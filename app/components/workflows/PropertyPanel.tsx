@@ -400,7 +400,6 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
           </label>
           <CodeMirrorEditor
             value={nodeData.code || ''}
-            onChange={(value) => updateNodeData('code', value)}
             previousNodeOutputs={previousNodeOutputs}
             placeholder="// Write your TypeScript code here"
             className="min-h-[200px]"
