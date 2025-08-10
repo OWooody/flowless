@@ -10,6 +10,7 @@ import { basicSetup } from 'codemirror';
 
 interface CodeMirrorEditorProps {
   value: string;
+  onChange?: (value: string) => void;
   previousNodeOutputs?: Record<string, any>;
   placeholder?: string;
   className?: string;
@@ -225,6 +226,7 @@ function createEnhancedCompletions(previousNodeOutputs: Record<string, any> = {}
 
 const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   value,
+  onChange,
   previousNodeOutputs = {},
   placeholder = '// Your code here...',
   className = ''
@@ -249,7 +251,17 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         // Update local state only - no node updates while typing
-        setLocalValue(update.state.doc.toString());
+        const newValue = update.state.doc.toString();
+        setLocalValue(newValue);
+        
+        // Call onChange if provided, with debouncing to avoid too many updates
+        if (onChange) {
+          // Use a simple debounce to avoid excessive updates
+          clearTimeout((window as any).codeChangeTimeout);
+          (window as any).codeChangeTimeout = setTimeout(() => {
+            onChange(newValue);
+          }, 500); // 500ms debounce
+        }
       }
     }),
     EditorView.theme({
@@ -344,7 +356,7 @@ const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       />
       <div className="bg-gray-50 border border-gray-300 border-t-0 px-3 py-2 text-xs text-gray-600">
         💡 <strong>Tip:</strong> Remember to use <code className="bg-gray-200 px-1 rounded">return</code> to output data for the next node. 
-        Code changes are saved when you save the entire workflow.
+        Code changes are saved automatically as you type.
       </div>
     </div>
   );
