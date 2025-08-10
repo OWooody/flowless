@@ -23,6 +23,7 @@ import ActionNode from '../../components/workflows/ActionNode';
 import ConditionNode from '../../components/workflows/ConditionNode';
 import TypeScriptNode from '../../components/workflows/TypeScriptNode';
 import SlackNode from '../../components/workflows/SlackNode';
+import PropertyPanel from '../../components/workflows/PropertyPanel';
 import { WorkflowProvider } from '../../components/workflows/WorkflowContext';
 
 // Simple loader component for when nodes are being loaded
@@ -78,6 +79,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   const [workflowCompleted, setWorkflowCompleted] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'unsaved'>('unsaved');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const lastSaveTime = useRef<number>(0);
@@ -128,11 +130,15 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
   );
 
   const onNodeClick = useCallback((event: any, node: Node) => {
-    // Node click handling removed - properties will be edited directly in nodes
+    // Select node to show property panel (except trigger and condition nodes)
+    if (node.type !== 'trigger' && node.type !== 'condition') {
+      setSelectedNode(node);
+    }
   }, []);
 
   const onPaneClick = useCallback(() => {
-    // Pane click handling removed - no need to deselect nodes
+    // Deselect nodes when clicking on empty space
+    setSelectedNode(null);
   }, []);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -753,7 +759,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
           {/* REMOVED */}
 
           {/* React Flow Canvas */}
-          <div className="w-full h-full" ref={reactFlowWrapper}>
+          <div className={`h-full transition-all duration-300 ${selectedNode ? 'w-[calc(100%-20rem)]' : 'w-full'}`} ref={reactFlowWrapper}>
             {isLoading && <WorkflowLoader isLoading={isLoading} />}
             <ReactFlow
               nodes={nodes}
@@ -772,6 +778,14 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
               <Controls />
             </ReactFlow>
           </div>
+
+          {/* Property Panel */}
+          {selectedNode && (
+            <PropertyPanel
+              selectedNode={selectedNode}
+              onClose={() => setSelectedNode(null)}
+            />
+          )}
         </div>
 
         {/* JSON Input Modal */}
