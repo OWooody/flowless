@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useReactFlow } from 'reactflow';
 import SmartInput from './SmartInput';
+import CodeMirrorEditor from './CodeMirrorEditor';
 
 interface PropertyPanelProps {
   selectedNode: any;
@@ -18,6 +19,9 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
   const [nodeData, setNodeData] = useState<NodeData>({});
   const [executionData, setExecutionData] = useState<any>(null);
   const [eventData, setEventData] = useState<any>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [runResult, setRunResult] = useState<any>(null);
+  const [previousNodeOutputs, setPreviousNodeOutputs] = useState<Record<string, any>>({});
 
   // Fetch execution data when node changes
   useEffect(() => {
@@ -30,6 +34,22 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
   useEffect(() => {
     if (selectedNode) {
       setNodeData(selectedNode.data || {});
+    }
+  }, [selectedNode]);
+
+  // Populate sample previous node outputs for demonstration
+  useEffect(() => {
+    if (selectedNode?.type === 'typescript') {
+      setPreviousNodeOutputs({
+        trigger: {
+          data: { message: "Sample trigger data" },
+          type: "webhook",
+          timestamp: new Date().toISOString(),
+          testData: true
+        },
+        'action_1': { result: "Sample action result" },
+        'condition_1': { passed: true }
+      });
     }
   }, [selectedNode]);
 
@@ -65,6 +85,35 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
   const handleInputBlur = useCallback((field: string, value: string) => {
     updateNodeData(field, value);
   }, [updateNodeData]);
+
+  const handleRunTypeScript = useCallback(async () => {
+    if (!nodeData.code?.trim()) return;
+    
+    setIsRunning(true);
+    setRunResult(null);
+    
+    try {
+      const response = await fetch('/api/workflows/test-node', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodeId: selectedNode.id,
+          nodeType: 'typescript',
+          nodeData: { code: nodeData.code },
+          previousOutputs: previousNodeOutputs,
+        }),
+      });
+
+      const result = await response.json();
+      setRunResult(result);
+    } catch (error) {
+      setRunResult({ success: false, error: 'Failed to run code' });
+    } finally {
+      setIsRunning(false);
+    }
+  }, [nodeData.code, selectedNode.id, previousNodeOutputs]);
 
   // Don't render for trigger or condition nodes
   if (!selectedNode || selectedNode.type === 'trigger' || selectedNode.type === 'condition') {
@@ -218,17 +267,120 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-800">TypeScript Code</h3>
         
+        {/* Available Variables Display */}
+        {Object.keys(previousNodeOutputs).length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-xs">
+            <div className="text-blue-700 font-medium mb-1">
+              💡 Available variables:
+            </div>
+            <div className="text-blue-600 space-x-2">
+              {Object.keys(previousNodeOutputs).map((nodeName, index) => (
+                <span key={index} className="inline-block bg-blue-100 px-2 py-1 rounded">
+                  {nodeName}
+                </span>
+              ))}
+            </div>
+            {/* Show trigger data specifically */}
+            {previousNodeOutputs.trigger && (
+              <div className="mt-2 pt-2 border-t border-blue-200">
+                <div className="text-blue-700 font-medium mb-1">
+                  🚀 Trigger data:
+                </div>
+                <div className="text-blue-600 space-x-2">
+                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                    trigger.data
+                  </span>
+                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                    trigger.type
+                  </span>
+                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                    trigger.timestamp
+                  </span>
+                  <span className="inline-block bg-green-100 px-2 py-1 rounded">
+                    trigger.testData
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Code Editor */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Code
           </label>
-          <textarea
+          <CodeMirrorEditor
             value={nodeData.code || ''}
-            onChange={(e) => updateNodeData('code', e.target.value)}
+            onChange={(value) => updateNodeData('code', value)}
+            previousNodeOutputs={previousNodeOutputs}
             placeholder="// Write your TypeScript code here"
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-48 resize-none font-mono text-sm"
+            className="min-h-[200px]"
           />
         </div>
+
+        {/* Run Button */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleRunTypeScript}
+            disabled={isRunning || !nodeData.code?.trim()}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors text-white font-medium"
+          >
+            {isRunning ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Running...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                </svg>
+                <span>Run Code</span>
+              </div>
+            )}
+          </button>
+        </div>
+
+        {/* Run Results */}
+        {runResult && (
+          <div className="border border-gray-200 rounded-md overflow-hidden">
+            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+              <h4 className="text-sm font-medium text-gray-700">Execution Results</h4>
+            </div>
+            <div className="p-3">
+              <div className="text-xs space-y-1">
+                {runResult.success ? (
+                  <div className="text-green-700">
+                    {runResult.output !== undefined ? (
+                      <pre className="bg-gray-100 p-2 rounded border border-gray-300 text-xs overflow-auto max-h-32">
+                        {JSON.stringify(runResult.output, null, 2)}
+                      </pre>
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                        <div className="flex items-center space-x-2 text-yellow-800">
+                          <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          <div>
+                            <div className="font-medium">No output returned</div>
+                            <div className="text-xs text-yellow-700 mt-1">
+                              Your code executed successfully but didn't return a value. Check your return statement.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-red-700">
+                    <div><strong>Error:</strong> {runResult.error}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
