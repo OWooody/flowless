@@ -381,6 +381,63 @@ const ConditionNode = memo(({ data, selected, id }: NodeProps<ConditionNodeData>
     }
   };
 
+  // Execute Slack action with the given parameters
+  const executeSlackAction = useCallback(async (actionData: {
+    channel?: string;
+    message?: string;
+    blocks?: any[];
+    attachments?: any[];
+    threadTs?: string;
+    replyBroadcast?: boolean;
+  }) => {
+    try {
+      // Validate required parameters
+      if (!actionData.channel && !actionData.message) {
+        throw new Error('Channel and message are required for Slack action');
+      }
+
+      // Prepare the Slack message payload
+      const payload = {
+        channel: actionData.channel || '#general',
+        text: actionData.message || '',
+        blocks: actionData.blocks || [],
+        attachments: actionData.attachments || [],
+        thread_ts: actionData.threadTs,
+        reply_broadcast: actionData.replyBroadcast || false
+      };
+
+      // Make API call to execute Slack action
+      const response = await fetch('/api/slack/send-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Slack API error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Slack action executed successfully:', result);
+      
+      return {
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('Failed to execute Slack action:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }, []);
+
   const getBranchStyle = (branchId: string) => {
     if (activeBranchId === branchId) {
       return 'bg-green-100 border-green-400 shadow-md';

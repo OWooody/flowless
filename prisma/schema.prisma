@@ -97,3 +97,32 @@ model Webhook {
   @@index([filterItemCategory])
   @@index([filterItemId])
 }
+
+model IntegrationCredential {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String?
+  provider       String   // 'slack', 'google', 'email', etc.
+  name           String   // User-friendly name
+  config         Json     // Encrypted credentials
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([userId, provider])
+  @@index([organizationId])
+}
+
+model IntegrationLog {
+  id                String   @id @default(cuid())
+  credentialId      String
+  operation         String   // 'create', 'update', 'delete', 'test'
+  status            String   // 'success', 'error'
+  details           Json?
+  errorMessage      String?
+  createdAt         DateTime @default(now())
+  
+  @@index([credentialId])
+  @@index([createdAt])
+  @@index([status])
+}

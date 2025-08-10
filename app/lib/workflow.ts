@@ -63,7 +63,25 @@ export type TypeScriptActionConfig = {
   description?: string;
 };
 
-export type ActionConfig = ConditionActionConfig | PersonalizationActionConfig | TypeScriptActionConfig;
+export type SlackActionConfig = {
+  type: 'slack';
+  credentialId?: string;
+  channel?: string;
+  message?: string;
+  messageType?: string;
+  threadTs?: string;
+  data?: {            // Data wrapper (new format from visual builder)
+    credentialId?: string;
+    channel?: string;
+    message?: string;
+    messageType?: string;
+    threadTs?: string;
+    [key: string]: any;
+  };
+  description?: string;
+};
+
+export type ActionConfig = ConditionActionConfig | PersonalizationActionConfig | TypeScriptActionConfig | SlackActionConfig;
 
 export type WorkflowConfig = {
   id: string;
@@ -271,6 +289,8 @@ class WorkflowService {
         return this.executePersonalizationAction(action as PersonalizationActionConfig, inputData, workflowId, workflowContext);
       case 'typescript':
         return this.executeTypeScriptAction(action as TypeScriptActionConfig, inputData, workflowId, workflowContext);
+      case 'slack':
+        return this.executeSlackAction(action as SlackActionConfig, inputData, workflowContext);
       default:
         const actionType = (action as any).type;
         throw new Error(`Unknown action type: ${actionType}`);

@@ -51,6 +51,20 @@ const nodeTemplates: NodeTemplate[] = [
       label: 'TypeScript Code',
     },
   },
+  {
+    type: 'slack',
+    label: 'Slack',
+    description: 'Send messages to Slack',
+    icon: '💬',
+    data: {
+      credentialId: '',
+      channel: '',
+      message: '',
+      messageType: 'text',
+      threadTs: '',
+      label: 'Slack Message',
+    },
+  },
 ];
 
 const NodePalette = () => {
