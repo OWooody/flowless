@@ -97,7 +97,13 @@ export class SlackService {
     const formData = new FormData();
     formData.append('token', botToken);
     formData.append('channels', fileUpload.channel);
-    formData.append('file', fileUpload.file, fileUpload.filename);
+    
+    // Handle both Buffer and string file types
+    if (typeof fileUpload.file === 'string') {
+      formData.append('file', new Blob([fileUpload.file]), fileUpload.filename);
+    } else {
+      formData.append('file', new Blob([fileUpload.file]), fileUpload.filename);
+    }
     
     if (fileUpload.title) formData.append('title', fileUpload.title);
     if (fileUpload.initial_comment) formData.append('initial_comment', fileUpload.initial_comment);

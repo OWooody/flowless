@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Handle different action types
-      if (action.type === 'action' || action.type === 'typescript' || action.type === 'condition') {
+      if (action.type === 'action' || action.type === 'typescript' || action.type === 'condition' || action.type === 'slack') {
         // These are the new generic action types - no specific validation needed
         continue;
       }

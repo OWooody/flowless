@@ -810,6 +810,60 @@ class WorkflowService {
       }))
     }));
   }
+
+  /**
+   * Execute Slack action
+   */
+  async executeSlackAction(action: SlackActionConfig, inputData: any, workflowContext?: any): Promise<any> {
+    try {
+      console.log('💬 Executing Slack action:', action);
+      
+      // Import the Slack service
+      const { slackService } = await import('./integrations/slack');
+      
+      // Get action parameters (handle both legacy and new format)
+      const credentialId = action.data?.credentialId || action.credentialId;
+      const channel = action.data?.channel || action.channel;
+      const message = action.data?.message || action.message;
+      const messageType = action.data?.messageType || action.messageType;
+      const threadTs = action.data?.threadTs || action.threadTs;
+      
+      // Validate required parameters
+      if (!credentialId) {
+        throw new Error('Credential ID is required for Slack action');
+      }
+      if (!channel) {
+        throw new Error('Channel is required for Slack action');
+      }
+      if (!message) {
+        throw new Error('Message is required for Slack action');
+      }
+      
+      // Prepare the Slack message
+      const slackMessage = {
+        channel,
+        text: message,
+        thread_ts: threadTs,
+      };
+      
+      // Send the message
+      const result = await slackService.sendMessage(credentialId, slackMessage);
+      
+      console.log('✅ Slack action completed:', result);
+      
+      return {
+        success: true,
+        result,
+        description: action.description,
+        channel,
+        message,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('❌ Error executing Slack action:', error);
+      throw error;
+    }
+  }
 }
 
 export const workflowService = new WorkflowService(); 

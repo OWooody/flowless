@@ -22,6 +22,7 @@ import TriggerNode from '../../components/workflows/TriggerNode';
 import ActionNode from '../../components/workflows/ActionNode';
 import ConditionNode from '../../components/workflows/ConditionNode';
 import TypeScriptNode from '../../components/workflows/TypeScriptNode';
+import SlackNode from '../../components/workflows/SlackNode';
 import { WorkflowProvider } from '../../components/workflows/WorkflowContext';
 
 // Simple loader component for when nodes are being loaded
@@ -102,6 +103,7 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
     condition: ConditionNode,
     action: ActionNode,
     typescript: TypeScriptNode,
+    slack: SlackNode,
   }), []);
 
   // onConnectStart and onConnectEnd - REMOVED (no longer needed without node palette)
@@ -433,7 +435,8 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
       const allActionNodes = nodes.filter(node => 
         node.type === 'action' || 
         node.type === 'typescript' ||
-        node.type === 'condition'
+        node.type === 'condition' ||
+        node.type === 'slack'
       );
 
       // Simply save all action nodes - don't worry about connections for now
@@ -673,6 +676,26 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
                     </svg>
                   </div>
                   <span className="text-gray-700">Code</span>
+                </button>
+                
+                <button
+                  onClick={() => addNodeFromPalette('slack', { 
+                    label: 'Slack Message',
+                    credentialId: '',
+                    channel: '#general',
+                    message: 'Hello from Flowless!',
+                    messageType: 'text',
+                    threadTs: ''
+                  })}
+                  className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-white transition-all duration-200 flex items-center space-x-2 shadow-sm"
+                  title="Add Slack Node"
+                >
+                  <div className="w-4 h-4 bg-green-500 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <span className="text-gray-700">Slack</span>
                 </button>
               </div>
             </div>
