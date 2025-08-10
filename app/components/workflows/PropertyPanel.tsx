@@ -426,21 +426,58 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ selectedNode, onClose }) 
   const renderSlackProperties = () => {
     if (selectedNode.type !== 'slack') return null;
 
+    const [slackCredentials, setSlackCredentials] = useState<any[]>([]);
+    const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
+
+    // Fetch Slack credentials when component mounts
+    useEffect(() => {
+      const fetchSlackCredentials = async () => {
+        setIsLoadingCredentials(true);
+        try {
+          // Mock user ID - in real app, get from auth context
+          const userId = 'user-123';
+          const response = await fetch(`/api/credentials?userId=${userId}&provider=slack`);
+          const data = await response.json();
+          if (data.credentials) {
+            setSlackCredentials(data.credentials);
+          }
+        } catch (error) {
+          console.error('Error fetching Slack credentials:', error);
+        } finally {
+          setIsLoadingCredentials(false);
+        }
+      };
+
+      fetchSlackCredentials();
+    }, []);
+
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-800">Slack Message</h3>
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Credential ID
+            Slack Integration
           </label>
-          <input
-            type="text"
+          <select
             value={nodeData.credentialId || ''}
             onChange={(e) => updateNodeData('credentialId', e.target.value)}
-            placeholder="Enter credential ID"
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+            disabled={isLoadingCredentials}
+          >
+            <option value="">Select a Slack integration</option>
+            {slackCredentials.map((credential) => (
+              <option key={credential.id} value={credential.id}>
+                {credential.name} ({credential.config?.team || 'Unknown team'})
+              </option>
+            ))}
+          </select>
+          {isLoadingCredentials && (
+            <p className="text-sm text-gray-500 mt-1">Loading integrations...</p>
+          )}
+          {!isLoadingCredentials && slackCredentials.length === 0 && (
+            <p className="text-sm text-gray-500 mt-1">No Slack integrations found. Create one in the Credentials section.</p>
+          )}
         </div>
 
         <div>
