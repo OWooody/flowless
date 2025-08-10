@@ -47,15 +47,20 @@ const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>) => {
     }
   };
 
+  const getTriggerLabel = (type: string) => {
+    switch (type) {
+      case 'webhook':
+        return 'Webhook';
+      case 'schedule':
+        return 'Schedule';
+      default:
+        return type;
+    }
+  };
+
   return (
     <div className={`bg-gradient-to-r ${getGradient(data.triggerType)} text-white rounded-lg shadow-lg border-2 ${selected ? 'border-orange-300' : 'border-orange-400'} min-w-[160px] max-w-[200px]`}>
-      <Handle 
-        type="source" 
-        position={Position.Right} 
-        className="w-3 h-3 bg-white"
-        style={{ right: '-25px' }}
-      />
-      
+      {/* Node Content */}
       <div className="p-3">
         <div className="flex items-center mb-2">
           <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-2">
@@ -66,24 +71,19 @@ const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>) => {
               {data.label || 'Trigger'}
             </div>
             <div className="text-xs text-orange-100 truncate">
-              {data.triggerType === 'webhook' ? 'Webhook' : 
-               data.triggerType === 'schedule' ? 'Schedule' : 
-               data.triggerType}
+              {getTriggerLabel(data.triggerType)}
             </div>
           </div>
         </div>
-        
-        {/* Simplified preview */}
-        <div className="bg-white bg-opacity-10 rounded p-2">
-          <div className="text-xs text-orange-100 truncate">
-            {data.triggerType === 'webhook' && data.webhookUrl ? 
-              `Webhook: ${data.webhookUrl}` : 
-              data.triggerType === 'schedule' && data.schedule ? 
-              `Schedule: ${data.schedule}` : 
-              'Click to configure'}
-          </div>
-        </div>
       </div>
+
+      {/* Output Handle - Right side */}
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="w-3 h-3 bg-white"
+        style={{ right: '-25px' }}
+      />
     </div>
   );
 });
