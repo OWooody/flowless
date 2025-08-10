@@ -704,56 +704,27 @@ const VisualWorkflowBuilder = ({ editWorkflowId }: { editWorkflowId: string | nu
                   <span className="text-gray-700">Slack</span>
                 </button>
               </div>
-            </div>
-          </div>
 
-          {/* Floating Action Buttons */}
-          <div className="absolute bottom-4 right-4 z-50">
-            <div className="flex flex-col space-y-2">
-              {/* Run Workflow Button */}
-              <button
-                onClick={() => runWorkflow()}
-                disabled={isRunning || isLoading || !editWorkflowId}
-                className={`rounded-full p-3 shadow-lg transition-all duration-200 ${
-                  !editWorkflowId 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700 hover:shadow-xl'
-                } text-white disabled:opacity-50`}
-                title={!editWorkflowId ? "Save workflow first to run it" : "Run Workflow"}
-              >
-                {isRunning ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-                  </svg>
-                )}
-              </button>
-              
+              {/* Save Button - Moved to top right */}
               <button
                 onClick={() => saveWorkflow()}
                 disabled={isSaving || isLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 title="Save Workflow"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
+                {isSaving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                )}
+                <span>{isSaving ? 'Saving...' : 'Save'}</span>
               </button>
-              
-              <button
-                onClick={clearCanvas}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200"
-                title="Clear Canvas"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-
-              {/* Keyboard shortcuts button - REMOVED */}
             </div>
           </div>
+
+          {/* Floating Action Buttons - REMOVED */}
 
           {/* Floating Node Palette */}
           {/* REMOVED */}
